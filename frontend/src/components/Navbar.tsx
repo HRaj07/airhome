@@ -255,7 +255,7 @@ export default function Navbar() {
   useEffect(() => {
     const COLLAPSE_AT = 80;
     const EXPAND_AT = 16;
-    const LOCK_MS = 250;
+    const LOCK_MS = 320;  // must outlast the 300ms collapse animation
     let raf = 0;
     let lockedUntil = 0;
     let current = true;
@@ -342,7 +342,7 @@ export default function Navbar() {
   return (
     <>
       <header
-        className={`sticky top-0 z-40 border-b border-neutral-200 dark:border-neutral-800 dark:bg-neutral-950 ${
+        className={`sticky top-0 z-40 border-b border-neutral-200 transition-colors duration-300 dark:border-neutral-800 dark:bg-neutral-950 ${
           expanded && !overlay ? "bg-[#f7f7f7]" : "bg-white"
         }`}
       >
@@ -354,40 +354,55 @@ export default function Navbar() {
               <span className="hidden text-[22px] font-bold tracking-tight md:inline">airhome</span>
             </Link>
 
-            {/* Center: tabs when expanded, compact pill otherwise */}
-            <div className="flex min-w-0 flex-1 justify-center">
-              {expanded ? (
-                <nav className="hidden items-end gap-10 md:flex" aria-label="Browse categories">
-                  {TABS.map(({ key, label, emoji, icon, href }) => (
-                    <Link
-                      key={key}
-                      href={href}
-                      className={
-                        tab === key && key !== "all"
-                          ? "group flex items-center gap-2 rounded-2xl border border-neutral-300 px-4 py-1.5 text-[15px] font-semibold text-ink shadow-sm dark:border-neutral-600 dark:text-white"
-                          : `group flex items-center gap-2 border-b-2 pb-2.5 pt-2 text-[15px] transition-colors ${
-                              tab === key
-                                ? "border-ink font-semibold text-ink dark:border-white dark:text-white"
-                                : "border-transparent text-[#6a6a6a] hover:text-ink dark:text-neutral-400 dark:hover:text-white"
-                            }`
-                      }
+            {/* Centre: the tabs and the compact pill occupy the same space and
+                cross-fade, rather than one replacing the other. Both are always
+                mounted so the swap can be animated; the hidden one is inert. */}
+            <div className="relative flex min-w-0 flex-1 justify-center self-stretch">
+              <nav
+                aria-label="Browse categories"
+                aria-hidden={!expanded}
+                className={`absolute inset-x-0 bottom-0 hidden items-end justify-center gap-10 transition-all duration-300 ease-out md:flex ${
+                  expanded ? "visible translate-y-0 opacity-100" : "invisible -translate-y-3 opacity-0"
+                }`}
+              >
+                {TABS.map(({ key, label, emoji, icon, href }) => (
+                  <Link
+                    key={key}
+                    href={href}
+                    className={
+                      tab === key && key !== "all"
+                        ? "group flex items-center gap-2 rounded-2xl border border-neutral-300 px-4 py-1.5 text-[15px] font-semibold text-ink shadow-sm dark:border-neutral-600 dark:text-white"
+                        : `group flex items-center gap-2 border-b-2 pb-2.5 pt-2 text-[15px] transition-colors ${
+                            tab === key
+                              ? "border-ink font-semibold text-ink dark:border-white dark:text-white"
+                              : "border-transparent text-[#6a6a6a] hover:text-ink dark:text-neutral-400 dark:hover:text-white"
+                          }`
+                    }
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`inline-flex h-[34px] items-center justify-center text-[34px] leading-none transition-transform group-hover:scale-110 ${tab === key ? "scale-110" : ""}`}
+                      style={{ filter: tab === key ? "none" : "saturate(0.85)" }}
                     >
-                      <span
-                        aria-hidden="true"
-                        className={`inline-flex h-[34px] items-center justify-center text-[34px] leading-none transition-transform group-hover:scale-110 ${tab === key ? "scale-110" : ""}`}
-                        style={{ filter: tab === key ? "none" : "saturate(0.85)" }}
-                      >
-                        {icon ?? emoji}
-                      </span>
-                      {t(label)}
-                    </Link>
-                  ))}
-                </nav>
-              ) : (
+                      {icon ?? emoji}
+                    </span>
+                    {t(label)}
+                  </Link>
+                ))}
+              </nav>
+
+              {/* The pill settles in from slightly wider, the way the real one
+                  looks as the big bar shrinks into it. */}
+              <div
+                aria-hidden={expanded}
+                className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out ${
+                  expanded ? "invisible scale-[1.15] opacity-0" : "visible scale-100 opacity-100"
+                }`}
+              >
                 <Suspense fallback={null}>
                   <HeaderSearch mode={mode} expanded={false} onExpand={expand} onCollapse={collapse} />
                 </Suspense>
-              )}
+              </div>
             </div>
 
             {/* Right actions */}
@@ -530,18 +545,34 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Expanded search bar: in-flow at the top of the home page, overlaid elsewhere */}
-          {expanded && (
+          {/* The big search bar. In flow at the top of the home page, where its
+              height animates to nothing as it collapses — a grid row from 1fr to
+              0fr is the one way to transition to an auto height — and overlaid
+              elsewhere, where there is no height to collapse. */}
+          {overlay ? (
+            expanded && (
+              <div className="absolute left-0 right-0 top-full border-b border-neutral-200 bg-white px-4 pb-5 pt-2 dark:border-neutral-800 dark:bg-neutral-950 sm:px-6 lg:px-10">
+                <Suspense fallback={null}>
+                  <HeaderSearch mode={mode} expanded onExpand={expand} onCollapse={collapse} />
+                </Suspense>
+              </div>
+            )
+          ) : (
             <div
-              className={
-                overlay
-                  ? "absolute left-0 right-0 top-full border-b border-neutral-200 bg-white px-4 pb-5 pt-2 dark:border-neutral-800 dark:bg-neutral-950 sm:px-6 lg:px-10"
-                  : "pb-5"
-              }
+              aria-hidden={!expanded}
+              className={`grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out ${
+                expanded ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0"
+              }`}
             >
-              <Suspense fallback={null}>
-                <HeaderSearch mode={mode} expanded onExpand={expand} onCollapse={collapse} />
-              </Suspense>
+              <div className="overflow-hidden">
+                <div
+                  className={`pb-5 transition-transform duration-300 ease-out ${expanded ? "translate-y-0" : "-translate-y-2"}`}
+                >
+                  <Suspense fallback={null}>
+                    <HeaderSearch mode={mode} expanded onExpand={expand} onCollapse={collapse} />
+                  </Suspense>
+                </div>
+              </div>
             </div>
           )}
         </div>
