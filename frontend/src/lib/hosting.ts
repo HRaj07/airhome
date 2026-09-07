@@ -142,8 +142,10 @@ export const SAMPLE_PHOTOS: { url: string; label: string }[] = [
 export const TITLE_MAX = 32;
 export const DESCRIPTION_MAX = 500;
 
-/** Airbnb's guest service fee, for the "guest price" shown on the price step. */
-export const GUEST_FEE_PCT = 0.14;
+/** The guest service fee, for the "guest price" shown on the price step. Must
+ *  match the listing's service_fee_pct, which is what checkout actually adds —
+ *  quoting the host 14% while charging the guest 12% made the wizard lie. */
+export const GUEST_FEE_PCT = 0.12;
 /** What Airbnb keeps from the host. */
 export const HOST_FEE_PCT = 0.03;
 
