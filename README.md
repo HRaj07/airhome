@@ -236,6 +236,19 @@ running.
 - Python 3.11+ and Node.js 18+ (repo was written targeting these; anything reasonably
   recent should work).
 
+### Quick start (scripted)
+
+```bash
+./setup.sh            # venv + backend deps + seeded DB + npm install  (run once)
+./start-backend.sh    # http://localhost:8000/docs
+./start-frontend.sh   # http://localhost:3000   (second terminal)
+./reseed.sh           # wipe and re-seed the demo data
+```
+
+The start scripts call `backend/.venv/bin/python` directly, so there is no
+`source .venv/bin/activate` step and no chance of picking up a globally installed
+`uvicorn`. The manual equivalents are below.
+
 ### Backend
 
 ```bash
