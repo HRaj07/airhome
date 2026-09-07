@@ -412,9 +412,21 @@ export default function Navbar() {
                   {hostLabel}
                 </Link>
               ) : (
-                <Link href="/host/homes" className="hidden rounded-full px-4 py-2.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:block">
-                  {t("Become a host")}
-                </Link>
+                <>
+                  <button
+                    onClick={() => setAuthOpen(true)}
+                    className="hidden rounded-full px-4 py-2.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:block"
+                  >
+                    {t("Log in or sign up")}
+                  </button>
+                  <button
+                    onClick={() => setLocaleOpen(true)}
+                    aria-label={t("Languages & currency")}
+                    className="hidden h-10 w-10 items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:flex"
+                  >
+                    <Globe size={18} />
+                  </button>
+                </>
               )}
               {/* Avatar: a direct link to your profile, like the real header. */}
               {user && (
