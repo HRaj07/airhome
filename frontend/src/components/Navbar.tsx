@@ -430,13 +430,6 @@ export default function Navbar() {
                     ) : (
                       <>
                         {user && (
-                          <div className="border-b border-neutral-200 px-4 pb-3 pt-2 dark:border-neutral-800">
-                            <p className="font-semibold">{user.full_name}</p>
-                            <p className="text-xs text-hof dark:text-neutral-400">{user.is_host ? t("Host account") : t("Guest account")}</p>
-                          </div>
-                        )}
-
-                        {user && (
                           <div>
                             <Link href="/wishlist" onClick={() => setMenuOpen(false)} className={menuItem}>
                               <Heart size={20} strokeWidth={1.6} /> {t("Wishlists")}
