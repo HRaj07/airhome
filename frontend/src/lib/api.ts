@@ -2,6 +2,7 @@ import type {
   Amenity,
   Booking,
   HostDashboard,
+  ListingCard,
   ListingDetail,
   ListingFormData,
   PaginatedListings,
@@ -95,7 +96,7 @@ export const listingsApi = {
   search: (params: SearchParams) => request<PaginatedListings>(`/listings${toQueryString(params)}`),
   get: (id: number | string) => request<ListingDetail>(`/listings/${id}`),
   availability: (id: number | string) => request<{ blocked_dates: string[] }>(`/listings/${id}/availability`),
-  mine: () => request<ListingDetail[]>("/listings/mine"),
+  mine: () => request<ListingCard[]>("/listings/mine"),
   create: (data: ListingFormData) => request<ListingDetail>("/listings", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number | string, data: ListingFormData) =>
     request<ListingDetail>(`/listings/${id}`, { method: "PUT", body: JSON.stringify(data) }),
@@ -120,7 +121,7 @@ export const reviewsApi = {
 
 // ---------- Wishlist ----------
 export const wishlistApi = {
-  list: () => request<import("./types").ListingCard[]>("/wishlist"),
+  list: () => request<ListingCard[]>("/wishlist"),
   add: (listingId: number) => request<{ ok: boolean }>(`/wishlist/${listingId}`, { method: "POST" }),
   remove: (listingId: number) => request<{ ok: boolean }>(`/wishlist/${listingId}`, { method: "DELETE" }),
 };
