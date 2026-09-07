@@ -122,3 +122,8 @@ body {
 .dark .map-popup {
   color: #f2f2f2;
 }
+.cluster-pin {
+  border-radius: 9999px;
+  padding: 8px 12px;
+  font-weight: 700;
+}

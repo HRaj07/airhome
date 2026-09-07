@@ -22,14 +22,14 @@ export interface CurrencyOption {
 }
 
 export const CURRENCIES: CurrencyOption[] = [
-  { code: "USD", name: "United States dollar", symbol: "$", locale: "en-US", rate: 1, decimals: 2 },
+  { code: "USD", name: "United States dollar", symbol: "$", locale: "en-US", rate: 1, decimals: 0 },
   { code: "INR", name: "Indian rupee", symbol: "₹", locale: "en-IN", rate: 83.5, decimals: 0 },
-  { code: "EUR", name: "Euro", symbol: "€", locale: "de-DE", rate: 0.92, decimals: 2 },
-  { code: "GBP", name: "Pound sterling", symbol: "£", locale: "en-GB", rate: 0.79, decimals: 2 },
+  { code: "EUR", name: "Euro", symbol: "€", locale: "de-DE", rate: 0.92, decimals: 0 },
+  { code: "GBP", name: "Pound sterling", symbol: "£", locale: "en-GB", rate: 0.79, decimals: 0 },
   { code: "JPY", name: "Japanese yen", symbol: "¥", locale: "ja-JP", rate: 149, decimals: 0 },
-  { code: "AUD", name: "Australian dollar", symbol: "A$", locale: "en-AU", rate: 1.52, decimals: 2 },
-  { code: "CAD", name: "Canadian dollar", symbol: "C$", locale: "en-CA", rate: 1.36, decimals: 2 },
-  { code: "SGD", name: "Singapore dollar", symbol: "S$", locale: "en-SG", rate: 1.34, decimals: 2 },
+  { code: "AUD", name: "Australian dollar", symbol: "A$", locale: "en-AU", rate: 1.52, decimals: 0 },
+  { code: "CAD", name: "Canadian dollar", symbol: "C$", locale: "en-CA", rate: 1.36, decimals: 0 },
+  { code: "SGD", name: "Singapore dollar", symbol: "S$", locale: "en-SG", rate: 1.34, decimals: 0 },
 ];
 
 export interface LanguageOption {

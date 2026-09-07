@@ -23,7 +23,12 @@ fullstack assignment.
   (Filters + quick amenity toggles), an infinite-scroll grid on the left and an
   **interactive map with clickable price pins** on the right (Leaflet + OpenStreetMap,
   no API key). Hovering a card highlights its pin; clicking a pin opens a mini card.
-  The filters modal covers price range, property type and amenities.
+  Overlapping pins merge into "N homes" cluster pins that zoom in on click, and the
+  filter-chip row stays pinned under the header while you scroll. The filters modal
+  covers price range, property type and amenities.
+- **Nearby search** — the Where dropdown has a "Nearby" option that uses the browser's
+  Geolocation API and jumps to the closest destination with inventory (the app only has
+  listings in eight cities, so it tells you how far away that city is).
 - **Experiences & Services** — fully bookable, not placeholders. Experiences are hosted
   activities at a fixed daily start time (time badge on the card, "From ₹3,700 / guest ·
   ★5.0"); services are professionals booked per guest or per group. Each has a detail
@@ -259,8 +264,8 @@ Visit `http://localhost:3000`.
 # Backend — pure pricing/date-overlap logic, stdlib only
 cd backend && python3 tests/test_pricing.py
 
-# Frontend — pure calendar/date logic, run directly with tsx (no test runner needed)
-cd frontend && npx tsx src/lib/date.test.ts
+# Frontend — pure calendar/date and geo logic, run directly with tsx (no test runner needed)
+cd frontend && npx tsx src/lib/date.test.ts && npx tsx src/lib/geo.test.ts
 ```
 
 ---

@@ -2,15 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, MapPin, Home as HomeIcon, PartyPopper, ConciergeBell, Sparkles } from "lucide-react";
+import { Search, MapPin, Home as HomeIcon, PartyPopper, ConciergeBell, Sparkles, LocateFixed } from "lucide-react";
 import DateRangeCalendar from "./DateRangeCalendar";
 import GuestSelector from "./GuestSelector";
 import { formatDateRange, formatShort, fromISODate, toISODate } from "@/lib/date";
 import { experiencesApi } from "@/lib/api";
+import { useToast } from "@/lib/toast-context";
+import { DESTINATIONS, getCurrentPosition, nearestDestination } from "@/lib/geo";
 
 export type SearchMode = "homes" | "experiences" | "services";
 
-const POPULAR_DESTINATIONS = ["Paris", "London", "Tokyo", "New York", "Barcelona", "Bali", "Lisbon", "Los Angeles"];
 
 const MODE_CONFIG: Record<
   SearchMode,
@@ -46,7 +47,9 @@ export default function HeaderSearch({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { showToast } = useToast();
   const cfg = MODE_CONFIG[mode];
+  const [locating, setLocating] = useState(false);
 
   const [location, setLocation] = useState("");
   const [checkIn, setCheckIn] = useState<Date | null>(null);
@@ -85,6 +88,27 @@ export default function HeaderSearch({
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
+
+  /** "Nearby": use the browser's location and jump to the closest destination we have inventory in. */
+  async function searchNearby() {
+    setLocating(true);
+    try {
+      const pos = await getCurrentPosition();
+      const { destination, distanceKm } = nearestDestination(pos.latitude, pos.longitude);
+      setLocation(destination.city);
+      showToast(
+        distanceKm < 150
+          ? `Showing ${mode === "homes" ? "homes" : mode} near you in ${destination.city}`
+          : `Closest destination to you is ${destination.city} (${distanceKm.toLocaleString()} km away)`,
+        "success"
+      );
+      setSection("when");
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Couldn't get your location", "error");
+    } finally {
+      setLocating(false);
+    }
+  }
 
   function submit() {
     const params = new URLSearchParams();
@@ -207,13 +231,31 @@ export default function HeaderSearch({
             />
           </div>
           <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-hof dark:text-neutral-400">Suggested destinations</p>
-          <ul className="max-h-64 overflow-y-auto">
-            {POPULAR_DESTINATIONS.filter((d) => d.toLowerCase().includes(location.toLowerCase())).map((d) => (
-              <li key={d}>
+          <ul className="max-h-72 overflow-y-auto">
+            {!location && (
+              <li>
+                <button
+                  type="button"
+                  onClick={searchNearby}
+                  disabled={locating}
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-neutral-100 disabled:opacity-60 dark:hover:bg-neutral-800"
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+                    <LocateFixed size={18} />
+                  </span>
+                  <span>
+                    <span className="block font-medium">{locating ? "Finding your location..." : "Nearby"}</span>
+                    <span className="block text-xs text-hof dark:text-neutral-400">Find what&apos;s around you</span>
+                  </span>
+                </button>
+              </li>
+            )}
+            {DESTINATIONS.filter((d) => d.city.toLowerCase().includes(location.toLowerCase()) || d.country.toLowerCase().includes(location.toLowerCase())).map((d) => (
+              <li key={d.city}>
                 <button
                   type="button"
                   onClick={() => {
-                    setLocation(d);
+                    setLocation(d.city);
                     setSection("when");
                   }}
                   className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -221,7 +263,10 @@ export default function HeaderSearch({
                   <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-100 dark:bg-neutral-800">
                     <MapPin size={18} />
                   </span>
-                  {d}
+                  <span>
+                    <span className="block font-medium">{d.city}</span>
+                    <span className="block text-xs text-hof dark:text-neutral-400">{d.country}</span>
+                  </span>
                 </button>
               </li>
             ))}

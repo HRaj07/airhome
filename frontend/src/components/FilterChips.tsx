@@ -27,7 +27,8 @@ export default function FilterChips({
     }`;
 
   return (
-    <div className="scrollbar-none -mx-4 flex items-center gap-2 overflow-x-auto px-4 py-4 sm:mx-0 sm:px-0">
+    <div className="sticky top-20 z-30 -mx-4 border-b border-neutral-100 bg-white px-4 dark:border-neutral-900 dark:bg-neutral-950 sm:mx-0 sm:px-0">
+      <div className="scrollbar-none flex items-center gap-2 overflow-x-auto py-4">
       <button onClick={onOpenFilters} className={`${chip(filtersActive)} flex items-center gap-2`}>
         <SlidersHorizontal size={16} /> Filters
       </button>
@@ -37,6 +38,7 @@ export default function FilterChips({
           {a.name === "Washer" ? "Washing machine" : a.name}
         </button>
       ))}
+      </div>
     </div>
   );
 }
