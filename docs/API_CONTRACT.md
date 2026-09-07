@@ -93,3 +93,21 @@ All list endpoints are paginated: `?page=1&limit=12` -> `{ items: [...], total, 
 
 ## Error shape
 `{ detail: "message" }` with appropriate HTTP status (400/401/403/404/409).
+
+### Experiences & Services
+Both live in the `experiences` table; `kind` is `experience` or `service`.
+- `GET /experiences/featured?kind=experience|service` -> `[{ title, key, items: ExperienceCard[] }]` (experiences grouped by city, services by category)
+- `GET /experiences?kind=&location=&category=&date=&guests=&page=&limit=` -> paginated ExperienceCard[]
+- `GET /experiences/categories?kind=` -> `["Photography", "Training", ...]`
+- `GET /experiences/{id}` -> ExperienceDetail (`+ description, host, photos, reviews, availability: [{date, spots_left}]` for the next 30 days)
+- `POST /experiences/{id}/bookings` — auth — `{date, guests_count}` -> ExperienceBooking (409 when the date lacks enough spots)
+- `POST /experiences/{id}/reviews` — auth — `{rating, comment}`; requires an attended (past-dated) booking
+- `GET /experiences/bookings/mine` — auth -> ExperienceBooking[]
+- `DELETE /experiences/bookings/{id}` — auth — cancel
+
+```
+ExperienceCard = { id, kind, category, title, city, country, price_per_guest, price_unit ("guest"|"group"),
+                   start_time ("3:00 PM" or ""), duration_minutes, max_guests, latitude, longitude,
+                   cover_photo_url, rating_avg, review_count }
+ExperienceBooking = { id, experience: ExperienceCard, date, guests_count, total_price, status, created_at }
+```

@@ -148,3 +148,77 @@ export const PROPERTY_TYPE_SHORT: Record<PropertyType, string> = {
   shared_room: "Shared room",
   hotel_room: "Hotel room",
 };
+
+// ---------- Experiences & Services ----------
+
+export type ExperienceKind = "experience" | "service";
+
+export interface ExperienceCard {
+  id: number;
+  kind: ExperienceKind;
+  category: string;
+  title: string;
+  city: string;
+  country: string;
+  price_per_guest: number;
+  price_unit: "guest" | "group" | string;
+  start_time: string;
+  duration_minutes: number;
+  max_guests: number;
+  latitude: number;
+  longitude: number;
+  cover_photo_url: string;
+  rating_avg: number;
+  review_count: number;
+}
+
+export interface ExperienceAvailability {
+  date: string;
+  spots_left: number;
+}
+
+export interface ExperienceReview {
+  id: number;
+  author: User;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+export interface ExperienceDetail extends ExperienceCard {
+  description: string;
+  host: User;
+  photos: Photo[];
+  reviews: ExperienceReview[];
+  availability: ExperienceAvailability[];
+}
+
+export interface ExperienceRow {
+  title: string;
+  key: string;
+  items: ExperienceCard[];
+}
+
+export interface PaginatedExperiences {
+  items: ExperienceCard[];
+  total: number;
+  page: number;
+  limit: number;
+  has_more: boolean;
+}
+
+export interface ExperienceBooking {
+  id: number;
+  experience: ExperienceCard;
+  date: string;
+  guests_count: number;
+  total_price: number;
+  status: BookingStatus;
+  created_at: string;
+}
+
+/** URL base for a given kind: experiences live under /experiences, services under /services. */
+export const KIND_PATH: Record<ExperienceKind, string> = {
+  experience: "/experiences",
+  service: "/services",
+};

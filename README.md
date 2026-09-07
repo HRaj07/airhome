@@ -12,14 +12,25 @@ fullstack assignment.
 ## 1. What's implemented
 
 ### Core features
-- **Home / explore page** — mirrors the current Airbnb homepage: a compact
+- **Home / explore** — mirrors the current Airbnb homepage: a compact
   `Anywhere | Anytime | Add guests` pill in the header that expands into the large
-  Where / When / Who search bar (with All / Homes / Experiences / Services tabs), followed by
-  horizontal carousel rows grouped by city ("Popular homes in Paris", "Available in Tokyo
-  this weekend", ...). Cards show a "Guest favourite" badge, "Home in Montmartre"-style
-  titles and "₹9,360 for 2 nights · ★4.9" pricing. Searching (or applying a filter) switches
-  to an infinite-scroll results grid with a filters modal (price range, property type,
-  amenities).
+  Where / When / Who search bar, with real **All / Homes / Experiences / Services** tabs
+  (`/`, `/homes`, `/experiences`, `/services`). The All tab interleaves home, experience
+  and service carousel rows ("Popular homes in Paris", "Happening today in Tokyo",
+  "Photography", ...). Cards show a "Guest favourite" badge, "Home in Montmartre"-style
+  titles and "₹9,360 for 2 nights · ★4.9" pricing.
+- **Search results** (`/homes?location=...`) — Airbnb's split layout: a filter-chip row
+  (Filters + quick amenity toggles), an infinite-scroll grid on the left and an
+  **interactive map with clickable price pins** on the right (Leaflet + OpenStreetMap,
+  no API key). Hovering a card highlights its pin; clicking a pin opens a mini card.
+  The filters modal covers price range, property type and amenities.
+- **Experiences & Services** — fully bookable, not placeholders. Experiences are hosted
+  activities at a fixed daily start time (time badge on the card, "From ₹3,700 / guest ·
+  ★5.0"); services are professionals booked per guest or per group. Each has a detail
+  page (gallery, description, host, map, reviews), a date picker that only allows dates
+  with spots left (per-date capacity is enforced server-side), a guest picker capped at
+  the remaining spots, a mocked checkout, a confirmation screen, and cancellation from
+  My Trips. Services can be searched by type (Photography, Training, Chefs, ...).
 - **Listing detail page** — photo gallery with a full-screen lightbox, description,
   amenities, host info card (with Superhost badge), an embedded map, an availability
   calendar that blocks already-booked dates, a price breakdown, and a reviews section.
@@ -27,8 +38,8 @@ fullstack assignment.
   or unavailable dates, guest count capped at the listing's max), a summary/checkout page
   with a mocked payment form, and a confirmation screen. Confirmed bookings persist and
   immediately block those dates on the listing's calendar.
-- **My Trips** — a guest's upcoming and past bookings, with the ability to cancel an
-  upcoming trip.
+- **My Trips** — a guest's upcoming and past stays *and* experience/service bookings,
+  with the ability to cancel anything upcoming.
 - **Host dashboard (full CRUD)** — hosts can create, edit, and delete listings (title,
   description, photos via URL, price, location with map coordinates, amenities), and see
   a dashboard of their listings (bookings, revenue, rating) plus upcoming bookings across
@@ -37,8 +48,11 @@ fullstack assignment.
   accounts (a user can be a guest only, or a guest *and* a host).
 - **Wishlist** — heart icon on every listing card and detail page, with a dedicated
   Wishlist page.
-- **Reviews** — a guest can leave a star rating + comment after a completed stay; the API
-  enforces this server-side (you can't review a place you haven't stayed at).
+- **Reviews** — a guest can leave a star rating + comment after a completed stay (or an
+  attended experience/service); the API enforces this server-side.
+- **Help Centre, Refer a host, Find a co-host** (hamburger menu) — working pages: a
+  searchable FAQ, a personal referral link with copy-to-clipboard and email invites, and a
+  filterable co-host directory with intro requests.
 - **Language & currency modal** (globe icon in the header) — pick a display currency
   (USD, INR, EUR, GBP, JPY, ...); every price on the site re-renders in it. Prices are
   stored in USD and converted with a fixed demo rate table. Language selection is stored
@@ -46,22 +60,17 @@ fullstack assignment.
 - **Toasts / notifications**, **dark mode toggle** (in the hamburger menu), and a **fully
   responsive** layout (mobile, tablet, desktop).
 - **Seed data** — 5 hosts, 4 guests, 48 listings across 8 cities (6 neighbourhoods per
-  city, each with 4-6 photos and 5-10 amenities), a mix of completed (reviewed) and
-  upcoming bookings.
+  city, each with 4-6 photos and 5-10 amenities), ~56 experiences and 42 services with
+  reviews, and a mix of completed and upcoming bookings for all three.
 
 ### Mocked / placeholder, as scoped by the assignment
 - **Payments** — the checkout screen collects mock card details and never contacts a real
   payment processor.
-- **Maps** — the listing detail page embeds a real, pannable/zoomable OpenStreetMap view
-  centered on the listing (no API key, no extra dependency). There is **no** map view with
-  clickable pins across the *search results* grid — that would need a mapping library
-  (e.g. Leaflet) that could not be installed and tested in the sandbox this was built in
-  (see [Section 8](#8-a-note-on-how-this-was-built--verified)); the grid view itself is
-  fully functional. Wiring in `react-leaflet` for a results-page map is a small, isolated
-  addition if you want to pick it up later — see `src/components/MapEmbed.tsx` for the
-  current map component to extend.
+- **Maps** — the search results map uses Leaflet with OpenStreetMap tiles (no API key);
+  the listing/experience detail pages embed an OpenStreetMap view. Both are real,
+  pannable maps rather than static images.
 - **Messaging between guests and hosts** and **identity verification** — out of scope per
-  the assignment; not implemented (no placeholder UI was added for these).
+  the assignment; not implemented.
 - **Image uploads** — listing photos are added by URL (as the assignment explicitly
   allows: "photos via URL or upload"), not by uploading to cloud storage.
 
@@ -146,6 +155,10 @@ SQLite, managed by SQLAlchemy (`backend/app/models.py`). Tables:
 | `bookings` | A confirmed or cancelled stay | `listing_id`, `guest_id`, `check_in`, `check_out`, `guests_count`, `subtotal`/`cleaning_fee`/`service_fee`/`total_price`, `status` |
 | `reviews` | A rating + comment tied to a completed booking | `listing_id`, `booking_id` (nullable), `author_id`, `rating` (1-5), `comment` |
 | `wishlist_items` | A user's saved listings | `user_id`, `listing_id` (unique together) |
+| `experiences` | A bookable activity (`kind=experience`) or professional service (`kind=service`) | `host_id` → `users.id`, `kind`, `category`, `city`, `price_per_guest`, `price_unit` (guest/group), `start_time`, `duration_minutes`, `max_guests` (capacity per date) |
+| `experience_photos` | Ordered photos for an experience | `experience_id`, `url`, `position` |
+| `experience_bookings` | A booking for one date | `experience_id`, `guest_id`, `date`, `guests_count`, `total_price`, `status` |
+| `experience_reviews` | Rating + comment on an experience | `experience_id`, `author_id`, `rating`, `comment` |
 
 Relationships: a host (`users`) has many `listings`; a listing has many `photos`,
 many-to-many `amenities`, many `bookings`, and many `reviews`; a `booking` belongs to one
@@ -153,8 +166,14 @@ many-to-many `amenities`, many `bookings`, and many `reviews`; a `booking` belon
 `users`/`listings` down to their dependent rows (photos, bookings, reviews, wishlist
 entries), so removing a listing cleans up everything under it.
 
+Experiences and services share one table because their booking model is identical (a
+date, a headcount, a per-guest or per-group price); `kind` decides which tab they appear
+under and how rows are grouped (experiences by city, services by category).
+
 **Availability** is derived, not stored as its own table: a date is "blocked" on a listing
 if it falls inside `[check_in, check_out)` of any `confirmed` booking for that listing.
+For experiences, a date's remaining spots = `max_guests` minus the guests on confirmed
+bookings for that date.
 This keeps the schema from needing to keep two things (bookings and a separate
 calendar/availability table) in sync.
 
@@ -164,7 +183,12 @@ calendar/availability table) in sync.
 
 | Route | Description |
 |---|---|
-| `/` | Home: city carousel rows; with search params (`?location=&check_in=&check_out=&guests=`) an infinite-scroll results grid + filters modal |
+| `/` | All tab: mixed home / experience / service carousel rows |
+| `/homes` | Homes tab: city rows; with any search params (`?location=&check_in=&check_out=&guests=`) the results grid + map + filters |
+| `/experiences`, `/services` | Carousel rows; with search params (`?location=&date=&guests=&category=`) a results grid |
+| `/experiences/[id]`, `/services/[id]` | Detail page with date/guest picker |
+| `/experiences/[id]/book`, `/services/[id]/book` | Mocked checkout + confirmation |
+| `/help`, `/refer`, `/co-host` | Help Centre (searchable FAQ), referral link + invites, co-host directory |
 | `/listing/[id]` | Listing detail: gallery, amenities, host, map, calendar, reviews |
 | `/booking/[listingId]?check_in=&check_out=&guests=` | Booking summary + mocked checkout |
 | `/trips` | My Trips (guest) |
@@ -188,6 +212,7 @@ Full endpoint-by-endpoint reference (request/response shapes) is in
 | Reviews | `GET/POST /api/listings/{id}/reviews` |
 | Wishlist | `GET /api/wishlist`, `POST/DELETE /api/wishlist/{listing_id}` |
 | Host | `GET /api/host/dashboard` |
+| Experiences & Services | `GET /api/experiences/featured?kind=`, `GET /api/experiences?kind=&location=&category=&date=&guests=`, `GET /api/experiences/categories?kind=`, `GET /api/experiences/{id}`, `POST /api/experiences/{id}/bookings`, `POST /api/experiences/{id}/reviews`, `GET /api/experiences/bookings/mine`, `DELETE /api/experiences/bookings/{id}` |
 
 Auth is a JWT bearer token (`Authorization: Bearer <token>`), issued at register/login.
 Interactive Swagger docs are auto-generated by FastAPI at `/docs` once the backend is
@@ -331,5 +356,7 @@ git push -u origin main
   simplified or mocked."
 - The header reproduces Airbnb's layout and interaction (compact pill → expanded bar,
   tabs, globe modal, hamburger menu) but uses an original "airhome" wordmark and icon
-  rather than Airbnb's trademarked logo. Experiences / Services tabs, Help Centre, Refer a
-  host and Find a co-host are "coming soon" placeholders.
+  rather than Airbnb's trademarked logo.
+- Referral invites and co-host intro requests are stored in the browser (localStorage)
+  rather than the database — they don't affect any other user, so a server round-trip
+  would add tables without adding behaviour.

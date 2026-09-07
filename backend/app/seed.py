@@ -117,6 +117,89 @@ REVIEW_COMMENTS = [
 ]
 
 
+EXPERIENCES = {
+    "Food & drink": [
+        ("{city} street food tour with a local", "12:00 PM", 180, 34),
+        ("Hidden bars & craft cocktails of {city}", "8:00 PM", 150, 58),
+        ("Cook a traditional {city} dinner together", "6:30 PM", 180, 72),
+    ],
+    "Art & culture": [
+        ("{city} history & architecture walk", "10:00 AM", 150, 29),
+        ("Photography walk through old {city}", "4:00 PM", 120, 45),
+        ("Museum highlights with an art historian", "1:00 PM", 120, 55),
+    ],
+    "Outdoors": [
+        ("Sunrise hike above {city}", "6:00 AM", 240, 49),
+        ("Bike the hidden corners of {city}", "9:00 AM", 180, 39),
+    ],
+    "Wellness": [
+        ("Rooftop yoga at sunrise", "7:00 AM", 75, 25),
+        ("Sound bath & guided meditation", "7:30 PM", 90, 30),
+    ],
+    "Nightlife": [
+        ("{city} night market food crawl", "7:00 PM", 180, 42),
+        ("Live jazz & speakeasies after dark", "9:00 PM", 150, 65),
+    ],
+}
+
+SERVICES = {
+    "Photography": [
+        ("{city} photo session by a local photographer", 90, 110, "guest"),
+        ("Editorial love-story portraits by {name}", 120, 140, "group"),
+        ("Candid travel portraits by {name}", 60, 95, "guest"),
+        ("Cinematic city portraits by {name} Studio", 120, 160, "group"),
+    ],
+    "Training": [
+        ("Personal training session with {name}", 60, 45, "guest"),
+        ("Private yoga class at your stay", 75, 40, "guest"),
+        ("Boxing fundamentals with {name}", 60, 55, "guest"),
+        ("Pilates reformer session", 55, 50, "guest"),
+    ],
+    "Chefs": [
+        ("Private chef dinner by {name}", 180, 95, "guest"),
+        ("Farm-to-table tasting menu at home", 150, 120, "guest"),
+        ("Brunch cooked in your kitchen by {name}", 120, 60, "guest"),
+    ],
+    "Massage": [
+        ("In-home deep tissue massage", 60, 85, "guest"),
+        ("Couples relaxation massage", 75, 150, "group"),
+        ("Post-flight recovery massage by {name}", 60, 90, "guest"),
+    ],
+    "Make-up": [
+        ("Event make-up by {name}", 60, 70, "guest"),
+        ("Bridal trial & wedding-day make-up", 120, 180, "guest"),
+    ],
+    "Hair": [
+        ("Blowout & styling at your stay", 45, 50, "guest"),
+        ("Cut & colour by {name}", 120, 130, "guest"),
+    ],
+}
+
+PRO_NAMES = ["Anaya", "Rishab", "Anurag", "Ashish", "Léa", "Kenji", "Marta", "Tomás", "Noor", "Elena"]
+
+EXPERIENCE_DESCRIPTION = (
+    "Join a passionate local host for a small-group experience designed to show you a side "
+    "of the city most visitors never see. Everything is included — just bring your curiosity "
+    "and comfortable shoes. Groups are kept small so there's plenty of time for questions, "
+    "photos and detours."
+)
+
+SERVICE_DESCRIPTION = (
+    "A vetted professional comes to you — at your stay or a location of your choice — so you "
+    "can make the most of your trip without the logistics. Book a time that suits you; the "
+    "provider brings everything needed for the session."
+)
+
+EXPERIENCE_REVIEWS = [
+    "Our host was incredible — knowledgeable, funny and so generous with their time.",
+    "The highlight of our trip. Small group, great pace, unforgettable food.",
+    "Worth every penny. We saw places we'd never have found on our own.",
+    "Professional, punctual and genuinely talented. Would book again in a heartbeat.",
+    "Perfectly organised from start to finish. Highly recommend.",
+    "Such a fun way to spend the afternoon. Great for first-time visitors.",
+]
+
+
 def run():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
@@ -300,7 +383,105 @@ def run():
 
         db.commit()
 
-        print(f"Seeded {len(host_objs)} hosts, {len(guest_objs)} guests, {len(listings)} listings.")
+        # ---------- Experiences & Services ----------
+        experiences = []
+        for city, state, country, lat, lng, _neigh in CITIES:
+            # ~7 experiences per city: pick from every category
+            picks = []
+            for category, templates in EXPERIENCES.items():
+                for tpl in random.sample(templates, k=min(len(templates), 2 if category in ("Food & drink", "Art & culture") else 1)):
+                    picks.append((category, tpl))
+            for category, (title_tpl, start_time, duration, price) in picks:
+                exp = models.Experience(
+                    host_id=random.choice(host_objs).id,
+                    kind=models.ExperienceKind.experience,
+                    category=category,
+                    title=title_tpl.format(city=city),
+                    description=EXPERIENCE_DESCRIPTION,
+                    city=city,
+                    country=country,
+                    latitude=lat + random.uniform(-0.03, 0.03),
+                    longitude=lng + random.uniform(-0.03, 0.03),
+                    price_per_guest=float(price),
+                    price_unit="guest",
+                    duration_minutes=duration,
+                    start_time=start_time,
+                    max_guests=random.choice([6, 8, 10, 12]),
+                )
+                db.add(exp)
+                db.flush()
+                for i in range(random.randint(3, 5)):
+                    db.add(models.ExperiencePhoto(experience_id=exp.id, url=f"https://picsum.photos/seed/exp{exp.id}-{i}/1024/768", position=i))
+                experiences.append(exp)
+
+        # Services: spread each category across cities so every category row is full
+        city_cycle = [c for c in CITIES]
+        idx = 0
+        for category, templates in SERVICES.items():
+            for _ in range(7):
+                title_tpl, duration, price, unit = templates[idx % len(templates)]
+                city, state, country, lat, lng, _neigh = city_cycle[idx % len(city_cycle)]
+                idx += 1
+                exp = models.Experience(
+                    host_id=random.choice(host_objs).id,
+                    kind=models.ExperienceKind.service,
+                    category=category,
+                    title=title_tpl.format(city=city, name=random.choice(PRO_NAMES)),
+                    description=SERVICE_DESCRIPTION,
+                    city=city,
+                    country=country,
+                    latitude=lat + random.uniform(-0.03, 0.03),
+                    longitude=lng + random.uniform(-0.03, 0.03),
+                    price_per_guest=float(price),
+                    price_unit=unit,
+                    duration_minutes=duration,
+                    start_time="",
+                    max_guests=random.choice([1, 2, 4, 6]) if unit == "guest" else random.choice([2, 4]),
+                )
+                db.add(exp)
+                db.flush()
+                for i in range(random.randint(3, 4)):
+                    db.add(models.ExperiencePhoto(experience_id=exp.id, url=f"https://picsum.photos/seed/svc{exp.id}-{i}/1024/768", position=i))
+                experiences.append(exp)
+        db.commit()
+
+        # Reviews + a few bookings (past ones make listings feel established, upcoming ones use up spots)
+        for exp in experiences:
+            for _ in range(random.randint(2, 6)):
+                db.add(models.ExperienceReview(
+                    experience_id=exp.id,
+                    author_id=random.choice(guest_objs).id,
+                    rating=random.choice([4, 5, 5, 5, 5]),
+                    comment=random.choice(EXPERIENCE_REVIEWS),
+                ))
+            if random.random() < 0.5:
+                guests = random.randint(1, max(1, min(2, exp.max_guests)))
+                total = exp.price_per_guest if exp.price_unit == "group" else exp.price_per_guest * guests
+                db.add(models.ExperienceBooking(
+                    experience_id=exp.id,
+                    guest_id=random.choice(guest_objs).id,
+                    date=today - datetime.timedelta(days=random.randint(3, 60)),
+                    guests_count=guests,
+                    total_price=round(total, 2),
+                    status=models.BookingStatus.confirmed,
+                ))
+            if random.random() < 0.3:
+                guests = random.randint(1, max(1, min(2, exp.max_guests)))
+                total = exp.price_per_guest if exp.price_unit == "group" else exp.price_per_guest * guests
+                db.add(models.ExperienceBooking(
+                    experience_id=exp.id,
+                    guest_id=random.choice(guest_objs).id,
+                    date=today + datetime.timedelta(days=random.randint(1, 20)),
+                    guests_count=guests,
+                    total_price=round(total, 2),
+                    status=models.BookingStatus.confirmed,
+                ))
+
+        db.commit()
+
+        n_exp = sum(1 for e in experiences if e.kind == models.ExperienceKind.experience)
+        n_svc = len(experiences) - n_exp
+        print(f"Seeded {len(host_objs)} hosts, {len(guest_objs)} guests, {len(listings)} listings, {n_exp} experiences, {n_svc} services.")
         print("Demo login (any host): amelia.host@example.com / password123")
         print("Demo login (guest):    demo@example.com / password123")
 

@@ -5,7 +5,18 @@ import { Star } from "lucide-react";
 import { reviewsApi, ApiError } from "@/lib/api";
 import { useToast } from "@/lib/toast-context";
 
-export default function WriteReviewForm({ listingId, onSubmitted }: { listingId: number; onSubmitted: () => void }) {
+export default function WriteReviewForm({
+  listingId,
+  onSubmitted,
+  submitReview,
+  notEligibleMessage = "You can only review a listing after a completed stay",
+}: {
+  listingId: number;
+  onSubmitted: () => void;
+  /** Override where the review is sent (defaults to the listing reviews endpoint). */
+  submitReview?: (data: { rating: number; comment: string }) => Promise<unknown>;
+  notEligibleMessage?: string;
+}) {
   const { showToast } = useToast();
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
@@ -20,14 +31,15 @@ export default function WriteReviewForm({ listingId, onSubmitted }: { listingId:
     }
     setSubmitting(true);
     try {
-      await reviewsApi.create(listingId, { rating, comment });
+      if (submitReview) await submitReview({ rating, comment });
+      else await reviewsApi.create(listingId, { rating, comment });
       showToast("Thanks for your review!", "success");
       setComment("");
       setOpen(false);
       onSubmitted();
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) {
-        showToast("You can only review a listing after a completed stay", "error");
+        showToast(notEligibleMessage, "error");
       } else if (e instanceof ApiError && e.status === 400) {
         showToast("You've already reviewed this stay", "info");
       } else {

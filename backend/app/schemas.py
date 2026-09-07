@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
-from .models import PropertyType, BookingStatus
+from .models import PropertyType, BookingStatus, ExperienceKind
 
 
 # ---------- Auth / User ----------
@@ -213,3 +213,88 @@ class HostListingSummary(ListingCard):
 class HostDashboard(BaseModel):
     listings: List[HostListingSummary]
     upcoming_bookings: List[BookingOut]
+
+
+# ---------- Experiences & Services ----------
+
+class ExperienceCard(BaseModel):
+    id: int
+    kind: ExperienceKind
+    category: str
+    title: str
+    city: str
+    country: str = ""
+    price_per_guest: float
+    price_unit: str = "guest"
+    start_time: str = ""
+    duration_minutes: int = 120
+    max_guests: int = 8
+    latitude: float = 0.0
+    longitude: float = 0.0
+    cover_photo_url: str = ""
+    rating_avg: float = 0.0
+    review_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class ExperienceAvailability(BaseModel):
+    date: str            # ISO date
+    spots_left: int
+
+
+class ExperienceReviewOut(BaseModel):
+    id: int
+    author: UserPublic
+    rating: int
+    comment: str
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ExperienceReviewCreate(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    comment: str = ""
+
+
+class ExperienceDetail(ExperienceCard):
+    description: str = ""
+    host: UserPublic
+    photos: List[PhotoOut] = []
+    reviews: List[ExperienceReviewOut] = []
+    availability: List[ExperienceAvailability] = []   # next 30 days with remaining capacity
+
+
+class ExperienceRow(BaseModel):
+    title: str
+    key: str
+    items: List[ExperienceCard]
+
+
+class PaginatedExperiences(BaseModel):
+    items: List[ExperienceCard]
+    total: int
+    page: int
+    limit: int
+    has_more: bool
+
+
+class ExperienceBookingCreate(BaseModel):
+    date: datetime.date
+    guests_count: int = Field(ge=1)
+
+
+class ExperienceBookingOut(BaseModel):
+    id: int
+    experience: ExperienceCard
+    date: datetime.date
+    guests_count: int
+    total_price: float
+    status: BookingStatus
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True

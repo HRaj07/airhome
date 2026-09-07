@@ -54,3 +54,71 @@ body {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
+
+/* ---- Search-results map (Leaflet) ---- */
+.price-pin-wrapper {
+  background: transparent;
+  border: none;
+}
+.price-pin {
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  background: #fff;
+  color: #222;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.price-pin:hover,
+.price-pin--active {
+  background: #222;
+  color: #fff;
+  transform: translate(-50%, -50%) scale(1.08);
+  z-index: 10;
+}
+.leaflet-popup-content-wrapper {
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+}
+.leaflet-popup-content {
+  margin: 0;
+  width: 240px !important;
+}
+.map-popup {
+  display: block;
+  color: #222;
+  text-decoration: none;
+}
+.map-popup__img {
+  height: 150px;
+  background-size: cover;
+  background-position: center;
+  background-color: #eee;
+}
+.map-popup__body {
+  padding: 10px 12px 12px;
+  font-size: 14px;
+}
+.map-popup__title {
+  font-weight: 600;
+}
+.map-popup__meta {
+  color: #717171;
+  font-size: 12px;
+  margin-top: 2px;
+}
+.map-popup__price {
+  margin-top: 4px;
+}
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #1f1f1f;
+}
+.dark .map-popup {
+  color: #f2f2f2;
+}

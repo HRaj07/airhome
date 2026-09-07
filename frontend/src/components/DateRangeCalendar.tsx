@@ -16,11 +16,23 @@ interface Props {
   checkIn: Date | null;
   checkOut: Date | null;
   blockedDates?: string[];
+  /** When given, ONLY these ISO dates are selectable (used for experiences with limited dates). */
+  allowedDates?: string[];
   monthsToShow?: number;
+  /** "range" picks check-in + checkout; "single" picks one date (checkOut is always null). */
+  mode?: "range" | "single";
   onChange: (checkIn: Date | null, checkOut: Date | null) => void;
 }
 
-export default function DateRangeCalendar({ checkIn, checkOut, blockedDates = [], monthsToShow = 2, onChange }: Props) {
+export default function DateRangeCalendar({
+  checkIn,
+  checkOut,
+  blockedDates = [],
+  allowedDates,
+  monthsToShow = 2,
+  mode = "range",
+  onChange,
+}: Props) {
   const today = new Date();
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
@@ -41,6 +53,10 @@ export default function DateRangeCalendar({ checkIn, checkOut, blockedDates = []
 
   function handleClick(date: Date, disabled: boolean) {
     if (disabled) return;
+    if (mode === "single") {
+      onChange(date, null);
+      return;
+    }
     if (!checkIn || (checkIn && checkOut)) {
       onChange(date, null);
       return;
@@ -77,7 +93,8 @@ export default function DateRangeCalendar({ checkIn, checkOut, blockedDates = []
         </div>
         <div className="grid grid-cols-7 gap-y-1 text-center text-sm">
           {grid.map((day, idx) => {
-            const disabled = day.isPast || day.isBlocked || !day.inCurrentMonth;
+            const notAllowed = allowedDates ? !allowedDates.includes(toISODate(day.date)) : false;
+            const disabled = day.isPast || day.isBlocked || notAllowed || !day.inCurrentMonth;
             const isCheckIn = checkIn && isSameDay(day.date, checkIn);
             const isCheckOut = checkOut && isSameDay(day.date, checkOut);
             const inRange = checkIn && checkOut && isWithinRange(day.date, checkIn, checkOut);
@@ -131,7 +148,7 @@ export default function DateRangeCalendar({ checkIn, checkOut, blockedDates = []
       <div className={`grid gap-8 ${monthsToShow === 2 ? "sm:grid-cols-2" : "grid-cols-1"}`}>
         {Array.from({ length: monthsToShow }).map((_, i) => renderMonth(i))}
       </div>
-      {checkIn && (
+      {checkIn && mode === "range" && (
         <p className="mt-3 text-xs text-hof dark:text-neutral-400">
           {checkOut ? `${toISODate(checkIn)} to ${toISODate(checkOut)}` : "Select checkout date"}
         </p>

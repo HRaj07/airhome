@@ -1,172 +1,70 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import FiltersModal, { FiltersButton, FilterValue } from "@/components/FiltersModal";
-import ListingGrid from "@/components/ListingGrid";
+import { ReactElement, useEffect, useState } from "react";
 import ListingCarousel from "@/components/ListingCarousel";
-import { amenitiesApi, listingsApi } from "@/lib/api";
-import { fromISODate, nightsBetween } from "@/lib/date";
-import type { Amenity, FeaturedRow, ListingCard } from "@/lib/types";
+import ExperienceCarousel from "@/components/ExperienceCarousel";
+import RowsSkeleton from "@/components/RowsSkeleton";
+import { experiencesApi, listingsApi } from "@/lib/api";
+import type { ExperienceRow, FeaturedRow } from "@/lib/types";
 
-const EMPTY_FILTERS: FilterValue = { minPrice: "", maxPrice: "", propertyType: "", amenityIds: [] };
-
+/**
+ * The "All" tab: a mix of home, experience and service carousel rows, like
+ * Airbnb's landing page. Searching from the header always lands on the
+ * dedicated tab (/homes, /experiences, /services).
+ */
 export default function HomePage() {
-  return (
-    <Suspense fallback={null}>
-      <HomeContent />
-    </Suspense>
-  );
-}
-
-function HomeContent() {
-  const searchParams = useSearchParams();
-  const location = searchParams.get("location") || "";
-  const checkIn = searchParams.get("check_in") || "";
-  const checkOut = searchParams.get("check_out") || "";
-  const guests = Number(searchParams.get("guests")) || 0;
-
-  const [filters, setFilters] = useState<FilterValue>(EMPTY_FILTERS);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [amenities, setAmenities] = useState<Amenity[]>([]);
-
-  const filtersActive =
-    !!filters.minPrice || !!filters.maxPrice || !!filters.propertyType || filters.amenityIds.length > 0;
-  const hasSearch = !!location || !!checkIn || !!checkOut || guests > 0 || filtersActive;
-
-  const nights = checkIn && checkOut ? Math.max(1, nightsBetween(fromISODate(checkIn), fromISODate(checkOut))) : 2;
-
-  // ---- homepage carousels ----
-  const [rows, setRows] = useState<FeaturedRow[]>([]);
-  const [rowsLoading, setRowsLoading] = useState(true);
-
-  // ---- search results ----
-  const [results, setResults] = useState<ListingCard[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const requestId = useRef(0);
+  const [homeRows, setHomeRows] = useState<FeaturedRow[]>([]);
+  const [experienceRows, setExperienceRows] = useState<ExperienceRow[]>([]);
+  const [serviceRows, setServiceRows] = useState<ExperienceRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    amenitiesApi.list().then(setAmenities).catch(() => setAmenities([]));
+    Promise.allSettled([listingsApi.featured(), experiencesApi.featured("experience"), experiencesApi.featured("service")])
+      .then(([homes, exps, svcs]) => {
+        if (homes.status === "fulfilled") setHomeRows(homes.value);
+        if (exps.status === "fulfilled") setExperienceRows(exps.value);
+        if (svcs.status === "fulfilled") setServiceRows(svcs.value);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (hasSearch) return;
-    setRowsLoading(true);
-    listingsApi
-      .featured()
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setRowsLoading(false));
-  }, [hasSearch]);
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10">
+        <RowsSkeleton />
+      </div>
+    );
+  }
 
-  const fetchResults = useCallback(
-    async (pageNum: number, replace: boolean) => {
-      const current = ++requestId.current;
-      setLoading(true);
-      try {
-        const res = await listingsApi.search({
-          location: location || undefined,
-          check_in: checkIn || undefined,
-          check_out: checkOut || undefined,
-          guests: guests > 0 ? guests : undefined,
-          min_price: filters.minPrice ? Number(filters.minPrice) : undefined,
-          max_price: filters.maxPrice ? Number(filters.maxPrice) : undefined,
-          property_type: filters.propertyType || undefined,
-          amenities: filters.amenityIds.length ? filters.amenityIds.join(",") : undefined,
-          page: pageNum,
-          limit: 18,
-        });
-        if (current !== requestId.current) return; // stale response
-        setResults((prev) => (replace ? res.items : [...prev, ...res.items]));
-        setTotal(res.total);
-        setHasMore(res.has_more);
-        setPage(pageNum);
-      } catch {
-        if (current === requestId.current) {
-          setResults([]);
-          setTotal(0);
-          setHasMore(false);
-        }
-      } finally {
-        if (current === requestId.current) setLoading(false);
-      }
-    },
-    [location, checkIn, checkOut, guests, filters]
-  );
-
-  useEffect(() => {
-    if (!hasSearch) return;
-    fetchResults(1, true);
-  }, [hasSearch, fetchResults]);
+  // Interleave: 3 home rows, an experience row, 2 home rows, a service row, ... so the
+  // page reads like Airbnb's mixed landing page rather than three separate lists.
+  const sections: ReactElement[] = [];
+  let h = 0;
+  let e = 0;
+  let s = 0;
+  while (h < homeRows.length || e < experienceRows.length || s < serviceRows.length) {
+    for (let i = 0; i < 2 && h < homeRows.length; i++, h++) {
+      const row = homeRows[h];
+      sections.push(<ListingCarousel key={`h-${row.city}`} title={row.title} city={row.city} listings={row.items} />);
+    }
+    if (e < experienceRows.length) {
+      sections.push(<ExperienceCarousel key={`e-${experienceRows[e].key}`} row={experienceRows[e]} />);
+      e++;
+    }
+    if (s < serviceRows.length) {
+      sections.push(<ExperienceCarousel key={`s-${serviceRows[s].key}`} row={serviceRows[s]} />);
+      s++;
+    }
+  }
 
   return (
-    <div className="mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-10">
-      {hasSearch ? (
-        <>
-          <div className="flex flex-wrap items-center justify-between gap-3 py-6">
-            <h1 className="text-lg font-semibold">
-              {loading && results.length === 0
-                ? "Searching..."
-                : `${total} ${total === 1 ? "stay" : "stays"}${location ? ` in ${location}` : ""}`}
-              {checkIn && checkOut && (
-                <span className="ml-2 text-sm font-normal text-hof dark:text-neutral-400">
-                  · {nights} night{nights !== 1 ? "s" : ""}
-                </span>
-              )}
-            </h1>
-            <FiltersButton active={filtersActive} onClick={() => setFiltersOpen(true)} />
-          </div>
-          <ListingGrid
-            listings={results}
-            nights={nights}
-            loading={loading}
-            hasMore={hasMore}
-            onLoadMore={() => fetchResults(page + 1, false)}
-            emptyMessage="No stays match your search"
-          />
-        </>
+    <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10">
+      {sections.length === 0 ? (
+        <p className="py-24 text-center text-hof dark:text-neutral-400">
+          No listings yet. Run the backend seed script (<code>python -m app.seed</code>) to load demo data.
+        </p>
       ) : (
-        <div className="py-6">
-          <div className="mb-2 flex justify-end">
-            <FiltersButton active={false} onClick={() => setFiltersOpen(true)} />
-          </div>
-          {rowsLoading
-            ? Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="animate-pulse py-3">
-                  <div className="mb-4 h-6 w-64 rounded bg-neutral-200 dark:bg-neutral-800" />
-                  <div className="flex gap-4 overflow-hidden">
-                    {Array.from({ length: 7 }).map((_, j) => (
-                      <div key={j} className="w-[232px] shrink-0">
-                        <div className="aspect-[1/0.95] rounded-2xl bg-neutral-200 dark:bg-neutral-800" />
-                        <div className="mt-3 h-4 w-3/4 rounded bg-neutral-200 dark:bg-neutral-800" />
-                        <div className="mt-2 h-4 w-1/2 rounded bg-neutral-200 dark:bg-neutral-800" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
-            : rows.map((row) => <ListingCarousel key={row.city} title={row.title} city={row.city} listings={row.items} />)}
-          {!rowsLoading && rows.length === 0 && (
-            <p className="py-24 text-center text-hof dark:text-neutral-400">
-              No listings yet. Run the backend seed script to load demo data.
-            </p>
-          )}
-        </div>
-      )}
-
-      {filtersOpen && (
-        <FiltersModal
-          amenities={amenities}
-          value={filters}
-          onClose={() => setFiltersOpen(false)}
-          onApply={(v) => {
-            setFilters(v);
-            setFiltersOpen(false);
-          }}
-        />
+        sections
       )}
     </div>
   );

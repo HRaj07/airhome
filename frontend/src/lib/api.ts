@@ -1,8 +1,14 @@
 import type {
   Amenity,
   Booking,
+  ExperienceBooking,
+  ExperienceDetail,
+  ExperienceKind,
+  ExperienceReview,
+  ExperienceRow,
   FeaturedRow,
   HostDashboard,
+  PaginatedExperiences,
   ListingCard,
   ListingDetail,
   ListingFormData,
@@ -131,6 +137,30 @@ export const wishlistApi = {
 // ---------- Host ----------
 export const hostApi = {
   dashboard: () => request<HostDashboard>("/host/dashboard"),
+};
+
+// ---------- Experiences & Services ----------
+export interface ExperienceSearchParams {
+  kind: ExperienceKind;
+  location?: string;
+  category?: string;
+  date?: string;
+  guests?: number;
+  page?: number;
+  limit?: number;
+}
+
+export const experiencesApi = {
+  featured: (kind: ExperienceKind) => request<ExperienceRow[]>(`/experiences/featured?kind=${kind}`),
+  search: (params: ExperienceSearchParams) => request<PaginatedExperiences>(`/experiences${toQueryString(params)}`),
+  categories: (kind: ExperienceKind) => request<string[]>(`/experiences/categories?kind=${kind}`),
+  get: (id: number | string) => request<ExperienceDetail>(`/experiences/${id}`),
+  book: (id: number | string, data: { date: string; guests_count: number }) =>
+    request<ExperienceBooking>(`/experiences/${id}/bookings`, { method: "POST", body: JSON.stringify(data) }),
+  myBookings: () => request<ExperienceBooking[]>("/experiences/bookings/mine"),
+  cancelBooking: (id: number) => request<{ ok: boolean }>(`/experiences/bookings/${id}`, { method: "DELETE" }),
+  review: (id: number | string, data: { rating: number; comment: string }) =>
+    request<ExperienceReview>(`/experiences/${id}/reviews`, { method: "POST", body: JSON.stringify(data) }),
 };
 
 export function setToken(token: string) {

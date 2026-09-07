@@ -19,17 +19,28 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useToast } from "@/lib/toast-context";
-import HeaderSearch from "./HeaderSearch";
+import HeaderSearch, { SearchMode } from "./HeaderSearch";
 import LocaleModal from "./LocaleModal";
 
 type Tab = "all" | "homes" | "experiences" | "services";
 
-const TABS: { key: Tab; label: string; icon: LucideIcon; live: boolean }[] = [
-  { key: "all", label: "All", icon: Globe, live: true },
-  { key: "homes", label: "Homes", icon: HomeIcon, live: true },
-  { key: "experiences", label: "Experiences", icon: PartyPopper, live: false },
-  { key: "services", label: "Services", icon: ConciergeBell, live: false },
+const TABS: { key: Tab; label: string; icon: LucideIcon; href: string }[] = [
+  { key: "all", label: "All", icon: Globe, href: "/" },
+  { key: "homes", label: "Homes", icon: HomeIcon, href: "/homes" },
+  { key: "experiences", label: "Experiences", icon: PartyPopper, href: "/experiences" },
+  { key: "services", label: "Services", icon: ConciergeBell, href: "/services" },
 ];
+
+/** Which tab is active, and which search mode the header uses, for a pathname. */
+function tabForPath(pathname: string): { tab: Tab; mode: SearchMode; isTabRoot: boolean } {
+  if (pathname === "/") return { tab: "all", mode: "homes", isTabRoot: true };
+  if (pathname === "/homes") return { tab: "homes", mode: "homes", isTabRoot: true };
+  if (pathname === "/experiences") return { tab: "experiences", mode: "experiences", isTabRoot: true };
+  if (pathname === "/services") return { tab: "services", mode: "services", isTabRoot: true };
+  if (pathname.startsWith("/experiences/")) return { tab: "experiences", mode: "experiences", isTabRoot: false };
+  if (pathname.startsWith("/services/")) return { tab: "services", mode: "services", isTabRoot: false };
+  return { tab: "homes", mode: "homes", isTabRoot: false };
+}
 
 export default function Navbar() {
   const { user, logout, loading } = useAuth();
@@ -40,12 +51,12 @@ export default function Navbar() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>("all");
   const [atTop, setAtTop] = useState(true);
   const [manualExpand, setManualExpand] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const isHome = pathname === "/";
+  const { tab, mode, isTabRoot } = tabForPath(pathname || "/");
+  const isHome = isTabRoot;
   const expanded = (isHome && atTop) || manualExpand;
   const overlay = expanded && !(isHome && atTop);
 
@@ -83,19 +94,6 @@ export default function Navbar() {
     router.push("/");
   }
 
-  function comingSoon(feature: string) {
-    setMenuOpen(false);
-    showToast(`${feature} is coming soon`, "info");
-  }
-
-  function selectTab(t: Tab, live: boolean) {
-    if (!live) {
-      showToast(`${t === "experiences" ? "Experiences" : "Services"} are coming soon`, "info");
-      return;
-    }
-    setTab(t);
-  }
-
   const hostHref = user?.is_host ? "/host/dashboard" : "/signup?host=1";
   const hostLabel = user?.is_host ? "Switch to hosting" : "Become a host";
 
@@ -117,10 +115,10 @@ export default function Navbar() {
             <div className="flex min-w-0 flex-1 justify-center">
               {expanded ? (
                 <nav className="hidden items-center gap-8 md:flex" aria-label="Browse categories">
-                  {TABS.map(({ key, label, icon: Icon, live }) => (
-                    <button
+                  {TABS.map(({ key, label, icon: Icon, href }) => (
+                    <Link
                       key={key}
-                      onClick={() => selectTab(key, live)}
+                      href={href}
                       className={`flex items-center gap-2 border-b-2 pb-2 pt-3 text-[15px] transition-colors ${
                         tab === key
                           ? "border-ink font-semibold text-ink dark:border-white dark:text-white"
@@ -129,12 +127,12 @@ export default function Navbar() {
                     >
                       <Icon size={22} strokeWidth={tab === key ? 2.2 : 1.6} />
                       {label}
-                    </button>
+                    </Link>
                   ))}
                 </nav>
               ) : (
                 <Suspense fallback={null}>
-                  <HeaderSearch expanded={false} onExpand={expand} onCollapse={collapse} />
+                  <HeaderSearch mode={mode} expanded={false} onExpand={expand} onCollapse={collapse} />
                 </Suspense>
               )}
             </div>
@@ -178,9 +176,9 @@ export default function Navbar() {
                           </div>
                         )}
 
-                        <button onClick={() => comingSoon("Help Centre")} className={menuItem}>
+                        <Link href="/help" onClick={() => setMenuOpen(false)} className={menuItem}>
                           <HelpCircle size={20} strokeWidth={1.6} /> Help Centre
-                        </button>
+                        </Link>
 
                         {user && (
                           <div className="border-t border-neutral-200 dark:border-neutral-800">
@@ -213,12 +211,12 @@ export default function Navbar() {
                         </div>
 
                         <div className="border-t border-neutral-200 dark:border-neutral-800">
-                          <button onClick={() => comingSoon("Refer a host")} className={menuItem}>
+                          <Link href="/refer" onClick={() => setMenuOpen(false)} className={menuItem}>
                             <UserPlus size={20} strokeWidth={1.6} /> Refer a host
-                          </button>
-                          <button onClick={() => comingSoon("Find a co-host")} className={menuItem}>
+                          </Link>
+                          <Link href="/co-host" onClick={() => setMenuOpen(false)} className={menuItem}>
                             <Users size={20} strokeWidth={1.6} /> Find a co-host
-                          </button>
+                          </Link>
                           <button onClick={toggleTheme} className={menuItem}>
                             {theme === "dark" ? <Sun size={20} strokeWidth={1.6} /> : <Moon size={20} strokeWidth={1.6} />}
                             {theme === "dark" ? "Light mode" : "Dark mode"}
@@ -254,7 +252,7 @@ export default function Navbar() {
               }
             >
               <Suspense fallback={null}>
-                <HeaderSearch expanded onExpand={expand} onCollapse={collapse} />
+                <HeaderSearch mode={mode} expanded onExpand={expand} onCollapse={collapse} />
               </Suspense>
             </div>
           )}

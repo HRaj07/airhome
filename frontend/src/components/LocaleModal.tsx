@@ -27,7 +27,8 @@ export default function LocaleModal({ onClose, initialTab = "language" }: { onCl
 
   function pickLanguage(code: string) {
     setLanguage(code);
-    showToast("Language preference saved (interface translation is a placeholder in this demo)", "info");
+    const picked = [...SUGGESTED_LANGUAGES, ...ALL_LANGUAGES].find((l) => l.code === code);
+    showToast(`Language set to ${picked ? `${picked.language} (${picked.region})` : code}`, "success");
     onClose();
   }
 

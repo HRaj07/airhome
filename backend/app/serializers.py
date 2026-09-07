@@ -104,3 +104,89 @@ def to_booking_out(booking: models.Booking) -> schemas.BookingOut:
         status=booking.status,
         created_at=booking.created_at,
     )
+
+
+# ---------- Experiences & Services ----------
+
+AVAILABILITY_WINDOW_DAYS = 30
+
+
+def _experience_rating_stats(db: Session, experience_id: int):
+    row = (
+        db.query(func.avg(models.ExperienceReview.rating), func.count(models.ExperienceReview.id))
+        .filter(models.ExperienceReview.experience_id == experience_id)
+        .first()
+    )
+    avg = round(row[0], 2) if row and row[0] else 0.0
+    count = row[1] if row else 0
+    return avg, count
+
+
+def _experience_cover(exp: models.Experience) -> str:
+    if exp.photos:
+        return sorted(exp.photos, key=lambda p: p.position)[0].url
+    return ""
+
+
+def to_experience_card(db: Session, exp: models.Experience) -> schemas.ExperienceCard:
+    avg, count = _experience_rating_stats(db, exp.id)
+    return schemas.ExperienceCard(
+        id=exp.id,
+        kind=exp.kind,
+        category=exp.category,
+        title=exp.title,
+        city=exp.city,
+        country=exp.country,
+        price_per_guest=exp.price_per_guest,
+        price_unit=exp.price_unit,
+        start_time=exp.start_time or "",
+        duration_minutes=exp.duration_minutes,
+        max_guests=exp.max_guests,
+        latitude=exp.latitude,
+        longitude=exp.longitude,
+        cover_photo_url=_experience_cover(exp),
+        rating_avg=avg,
+        review_count=count,
+    )
+
+
+def experience_spots_left(exp: models.Experience, date: datetime.date) -> int:
+    booked = sum(
+        b.guests_count
+        for b in exp.bookings
+        if b.status == models.BookingStatus.confirmed and b.date == date
+    )
+    return max(0, exp.max_guests - booked)
+
+
+def to_experience_detail(db: Session, exp: models.Experience) -> schemas.ExperienceDetail:
+    card = to_experience_card(db, exp)
+    today = datetime.date.today()
+    availability = [
+        schemas.ExperienceAvailability(
+            date=(today + datetime.timedelta(days=i)).isoformat(),
+            spots_left=experience_spots_left(exp, today + datetime.timedelta(days=i)),
+        )
+        for i in range(1, AVAILABILITY_WINDOW_DAYS + 1)
+    ]
+    reviews = sorted(exp.reviews, key=lambda r: r.created_at, reverse=True)
+    return schemas.ExperienceDetail(
+        **card.model_dump(),
+        description=exp.description,
+        host=schemas.UserPublic.model_validate(exp.host),
+        photos=[schemas.PhotoOut.model_validate(p) for p in sorted(exp.photos, key=lambda p: p.position)],
+        reviews=[schemas.ExperienceReviewOut.model_validate(r) for r in reviews],
+        availability=availability,
+    )
+
+
+def to_experience_booking_out(db: Session, booking: models.ExperienceBooking) -> schemas.ExperienceBookingOut:
+    return schemas.ExperienceBookingOut(
+        id=booking.id,
+        experience=to_experience_card(db, booking.experience),
+        date=booking.date,
+        guests_count=booking.guests_count,
+        total_price=booking.total_price,
+        status=booking.status,
+        created_at=booking.created_at,
+    )
