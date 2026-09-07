@@ -199,7 +199,7 @@ cd backend
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python -m app.seed          # creates airbnb.db and seeds demo data
-uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
 The API is now at `http://localhost:8000` (docs at `http://localhost:8000/docs`).
