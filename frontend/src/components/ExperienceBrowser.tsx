@@ -7,7 +7,7 @@ import ExperienceCard from "./ExperienceCard";
 import EmptyState from "./EmptyState";
 import RowsSkeleton from "./RowsSkeleton";
 import { destinationsApi, experiencesApi } from "@/lib/api";
-import { getApproximateLocation } from "@/lib/geo";
+import { useNearbyRows, type RowCoords } from "@/lib/use-nearby-rows";
 import Link from "next/link";
 import { fromISODate, formatShort } from "@/lib/date";
 import type { Destination, ExperienceCard as ExperienceCardType, ExperienceKind, ExperienceRow } from "@/lib/types";
@@ -32,8 +32,10 @@ function Browser({ kind }: { kind: ExperienceKind }) {
   const guests = Number(searchParams.get("guests")) || 0;
   const hasSearch = searchParams.toString().length > 0;
 
-  const [rows, setRows] = useState<ExperienceRow[]>([]);
-  const [rowsLoading, setRowsLoading] = useState(true);
+  // Carousel rows for the browse view (no search yet): generic first, then
+  // swapped for the cities nearest the visitor.
+  const featured = useCallback((c?: RowCoords) => experiencesApi.featured(kind, c), [kind]);
+  const { rows, loading: rowsLoading } = useNearbyRows<ExperienceRow>(featured, !hasSearch);
   const [popular, setPopular] = useState<Destination[]>([]);
 
   const [results, setResults] = useState<ExperienceCardType[]>([]);
@@ -43,46 +45,6 @@ function Browser({ kind }: { kind: ExperienceKind }) {
   const [loading, setLoading] = useState(false);
   const requestId = useRef(0);
   const sentinelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (hasSearch) return;
-    let cancelled = false;
-    // Set once the location-ranked rows are in. The localised request often
-    // beats the generic one (its IP lookup is cached), so without this flag the
-    // generic response landed second and overwrote the near-you rows.
-    let localised = false;
-    setRowsLoading(true);
-
-    // Two phases, like the home page: show the generic rows immediately rather
-    // than holding the tab behind a geolocation prompt, then quietly swap in
-    // the local ones if coordinates arrive.
-    experiencesApi
-      .featured(kind)
-      .then((generic) => {
-        if (!cancelled && !localised) setRows(generic);
-      })
-      .catch(() => {
-        if (!cancelled && !localised) setRows([]);
-      })
-      .finally(() => {
-        if (!cancelled) setRowsLoading(false);
-      });
-
-    getApproximateLocation()
-      .then((pos) => pos && experiencesApi.featured(kind, { latitude: pos.latitude, longitude: pos.longitude }))
-      .then((localisedRows) => {
-        if (cancelled || !localisedRows || !localisedRows.length) return;
-        localised = true;
-        setRows(localisedRows);
-      })
-      .catch(() => {
-        // No location (denied, unavailable, offline) — the generic rows stand.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasSearch, kind]);
 
   useEffect(() => {
     destinationsApi.search(undefined, 8).then(setPopular).catch(() => setPopular([]));

@@ -13,7 +13,7 @@ import EmptyState from "@/components/EmptyState";
 import RowsSkeleton from "@/components/RowsSkeleton";
 import { amenitiesApi, destinationsApi, listingsApi, type MapBounds, type SearchParams } from "@/lib/api";
 import { fromISODate, nightsBetween, formatShort } from "@/lib/date";
-import { getApproximateLocation } from "@/lib/geo";
+import { useNearbyRows, type RowCoords } from "@/lib/use-nearby-rows";
 import type { Amenity, Destination, FeaturedRow, ListingCard as ListingCardType, MapPin } from "@/lib/types";
 import { useLocale } from "@/lib/locale-context";
 
@@ -60,8 +60,10 @@ function HomesContent() {
   const [popular, setPopular] = useState<Destination[]>([]);
   const filtersActive = !!filters.minPrice || !!filters.maxPrice || !!filters.propertyType;
 
-  const [rows, setRows] = useState<FeaturedRow[]>([]);
-  const [rowsLoading, setRowsLoading] = useState(true);
+  // Carousel rows for the browse view (no search yet): generic first, then
+  // swapped for the cities nearest the visitor.
+  const featured = useCallback((c?: RowCoords) => listingsApi.featured(c), []);
+  const { rows, loading: rowsLoading } = useNearbyRows<FeaturedRow>(featured, !hasSearch);
 
   const [results, setResults] = useState<ListingCardType[]>([]);
   const [pins, setPins] = useState<MapPin[]>([]);
@@ -80,45 +82,6 @@ function HomesContent() {
     amenitiesApi.list().then(setAmenities).catch(() => setAmenities([]));
     destinationsApi.search(undefined, 8).then(setPopular).catch(() => setPopular([]));
   }, []);
-
-  useEffect(() => {
-    if (hasSearch) return;
-    let cancelled = false;
-    // Set once the location-ranked rows are in. The localised request often
-    // beats the generic one (its IP lookup is cached), so without this flag the
-    // generic response landed second and overwrote the near-you rows.
-    let localised = false;
-    setRowsLoading(true);
-
-    // Same two-phase load as the home page: paint the generic rows straight
-    // away, then swap in near-you rows once coordinates arrive (if they do).
-    listingsApi
-      .featured()
-      .then((generic) => {
-        if (!cancelled && !localised) setRows(generic);
-      })
-      .catch(() => {
-        if (!cancelled && !localised) setRows([]);
-      })
-      .finally(() => {
-        if (!cancelled) setRowsLoading(false);
-      });
-
-    getApproximateLocation()
-      .then((pos) => pos && listingsApi.featured({ latitude: pos.latitude, longitude: pos.longitude }))
-      .then((localisedRows) => {
-        if (cancelled || !localisedRows || !localisedRows.length) return;
-        localised = true;
-        setRows(localisedRows);
-      })
-      .catch(() => {
-        // No location (denied, unavailable, offline) — the generic rows stand.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasSearch]);
 
   // The filter set shared by the list and the map, so pins always agree with cards.
   const baseParams = useMemo<SearchParams>(

@@ -7,10 +7,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..database import get_db
-from ..rows import CANDIDATE_FACTOR, distinct_cards
+from ..rows import distinct_cards, group_candidates, rank_cities_by_distance
 from ..deps import get_current_user, get_current_user_optional, require_host
 from ..serializers import to_listing_card, to_listing_cards, to_listing_detail
-from ..utils import booking_overlaps, haversine_km
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
@@ -208,9 +207,6 @@ def featured_rows(
     """
     distances: dict[str, float] = {}
     if lat is not None and lng is not None:
-        # Rank every city with inventory by distance, not just the busiest ones:
-        # with the headline cities tied on listing count, nearest-of-the-top-20
-        # sent someone in Delhi to Agra.
         city_coords = (
             db.query(
                 models.Listing.city,
@@ -220,12 +216,7 @@ def featured_rows(
             .group_by(models.Listing.city)
             .all()
         )
-        ranked = sorted(
-            ((c, haversine_km(lat, lng, clat or 0.0, clng or 0.0)) for c, clat, clng in city_coords),
-            key=lambda pair: pair[1],
-        )[:rows]
-        top_cities = [c for c, _ in ranked]
-        distances = dict(ranked)
+        top_cities, distances = rank_cities_by_distance(city_coords, lat, lng, rows)
     else:
         top_cities = [
             row[0]
@@ -245,12 +236,7 @@ def featured_rows(
         .order_by(models.Listing.id.asc())
         .all()
     )
-    by_city: dict[str, list[models.Listing]] = {c: [] for c in top_cities}
-    for l in listings:
-        group = by_city.get(l.city)
-        # Over-gather: the row is de-duplicated below, so it needs spares.
-        if group is not None and len(group) < PER_ROW * CANDIDATE_FACTOR:
-            group.append(l)
+    by_city = group_candidates(listings, top_cities, lambda l: l.city, PER_ROW)
 
     # One batch serialization for every row's cards together.
     flat = [l for city in top_cities for l in by_city[city]]

@@ -9,7 +9,6 @@ The catalogue holds ~500 cities and ~3,500 destinations, so the aggregation
 happens in SQL and the text match is pushed into the same query — the first
 version of this endpoint loaded every listing on every keystroke.
 """
-from math import asin, cos, radians, sin, sqrt
 from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -160,11 +159,6 @@ def list_destinations(
     return [d for _, d in hits[:limit]]
 
 
-# Kept as a module-level alias so existing call sites read unchanged; the
-# implementation is shared with the location-aware homepage rows.
-_haversine_km = haversine_km
-
-
 @router.get("/nearest", response_model=schemas.NearestDestination)
 def nearest_destination(
     lat: float = Query(..., ge=-90, le=90),
@@ -190,7 +184,7 @@ def nearest_destination(
     )
     if not rows:
         raise HTTPException(status_code=404, detail="No destinations available")
-    best = min(rows, key=lambda r: _haversine_km(lat, lng, r[2] or 0.0, r[3] or 0.0))
+    best = min(rows, key=lambda r: haversine_km(lat, lng, r[2] or 0.0, r[3] or 0.0))
     city, country, clat, clng, count = best
     return schemas.NearestDestination(
         city=city,
@@ -198,5 +192,5 @@ def nearest_destination(
         latitude=clat or 0.0,
         longitude=clng or 0.0,
         count=count,
-        distance_km=round(_haversine_km(lat, lng, clat or 0.0, clng or 0.0)),
+        distance_km=round(haversine_km(lat, lng, clat or 0.0, clng or 0.0)),
     )

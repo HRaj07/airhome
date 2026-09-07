@@ -12,8 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..database import get_db
-from ..rows import CANDIDATE_FACTOR, distinct_cards
-from ..utils import haversine_km
+from ..rows import distinct_cards, group_candidates, rank_cities_by_distance
 from ..deps import get_current_user
 from ..serializers import (
     to_experience_cards,
@@ -100,13 +99,10 @@ def featured(
         .order_by(models.Experience.id.asc())
         .all()
     )
-    groups: dict[str, list[models.Experience]] = {k: [] for k in keys}
-    for e in items:
-        group = groups.get(e.category if kind == models.ExperienceKind.service else e.city)
-        # Over-gather: a category row draws the same title from every city, so
-        # it needs spares to survive de-duplication below.
-        if group is not None and len(group) < PER_ROW * CANDIDATE_FACTOR:
-            group.append(e)
+    # A category row draws the same title from every city, so it especially
+    # needs the spare candidates group_candidates gathers.
+    key_of = (lambda e: e.category) if kind == models.ExperienceKind.service else (lambda e: e.city)
+    groups = group_candidates(items, keys, key_of, PER_ROW)
 
     flat = [e for k in keys for e in groups[k]]
     cards = {c.id: c for c in to_experience_cards(db, flat)}
@@ -166,12 +162,7 @@ def _featured_near(db: Session, kind: models.ExperienceKind, rows: int,
     if not city_coords:
         return []
 
-    ranked = sorted(
-        ((c, haversine_km(lat, lng, clat or 0.0, clng or 0.0)) for c, clat, clng in city_coords),
-        key=lambda pair: pair[1],
-    )[:rows]
-    keys = [c for c, _ in ranked]
-    distances = dict(ranked)
+    keys, distances = rank_cities_by_distance(city_coords, lat, lng, rows)
 
     items = (
         _base_query(db, kind)
@@ -180,11 +171,7 @@ def _featured_near(db: Session, kind: models.ExperienceKind, rows: int,
         .order_by(models.Experience.id.asc())
         .all()
     )
-    groups: dict[str, list[models.Experience]] = {k: [] for k in keys}
-    for e in items:
-        group = groups.get(e.city)
-        if group is not None and len(group) < PER_ROW * CANDIDATE_FACTOR:
-            group.append(e)
+    groups = group_candidates(items, keys, lambda e: e.city, PER_ROW)
 
     flat = [e for k in keys for e in groups[k]]
     cards = {c.id: c for c in to_experience_cards(db, flat)}

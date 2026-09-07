@@ -346,13 +346,22 @@ Visit `http://localhost:3000`.
 ### Running the unit tests
 
 ```bash
-# Backend — stdlib only, no database or pytest needed
-cd backend
-python3 tests/test_pricing.py      # pricing + booking-overlap logic
-python3 tests/test_seed_data.py    # the catalogue and every seed row builder
+# Backend — stdlib only, no database, no pytest
+cd backend && python3 tests/run_all.py
 
-# Frontend — pure calendar/date and geo logic, run directly with tsx (no test runner needed)
-cd frontend && npx tsx src/lib/date.test.ts && npx tsx src/lib/geo.test.ts && npx tsx src/lib/i18n.test.ts
+# Frontend — typecheck plus the pure date / geo / i18n suites
+cd frontend && npm test
+```
+
+Both suites are dependency-free by design: the backend tests import only the
+standard library, and the frontend ones run straight through `tsx` with no test
+runner. Individual modules can still be run on their own:
+
+```bash
+cd backend   && python3 -m tests.test_pricing     # pricing + booking-overlap logic
+cd backend   && python3 -m tests.test_seed_data   # the catalogue and every seed row builder
+cd frontend  && npm run typecheck                 # tsc --noEmit over the whole app
+cd frontend  && npx tsx src/lib/date.test.ts      # calendar maths
 ```
 
 ---

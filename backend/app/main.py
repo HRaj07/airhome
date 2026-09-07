@@ -3,7 +3,9 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import models
+# Imported for its side effect: defining the models registers every table on
+# Base.metadata, which create_all() below reads. Removing it creates an empty DB.
+from . import models  # noqa: F401
 from .database import engine, Base
 from .routers import auth, listings, bookings, reviews, wishlist, amenities, host, experiences, destinations, users
 

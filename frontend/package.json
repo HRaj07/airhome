@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && npm run test:unit",
+    "test:unit": "npx --yes tsx src/lib/date.test.ts && npx --yes tsx src/lib/geo.test.ts && npx --yes tsx src/lib/i18n.test.ts"
   },
   "dependencies": {
     "next": "14.2.15",

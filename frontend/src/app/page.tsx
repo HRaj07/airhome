@@ -1,11 +1,11 @@
 "use client";
 
-import { ReactElement, useEffect, useState } from "react";
+import { ReactElement, useCallback } from "react";
 import ListingCarousel from "@/components/ListingCarousel";
 import ExperienceCarousel from "@/components/ExperienceCarousel";
 import RowsSkeleton from "@/components/RowsSkeleton";
 import { experiencesApi, listingsApi } from "@/lib/api";
-import { getApproximateLocation } from "@/lib/geo";
+import { useNearbyRows, type RowCoords } from "@/lib/use-nearby-rows";
 import type { ExperienceRow, FeaturedRow } from "@/lib/types";
 
 /**
@@ -14,74 +14,20 @@ import type { ExperienceRow, FeaturedRow } from "@/lib/types";
  * dedicated tab (/homes, /experiences, /services).
  */
 export default function HomePage() {
-  const [homeRows, setHomeRows] = useState<FeaturedRow[]>([]);
-  const [experienceRows, setExperienceRows] = useState<ExperienceRow[]>([]);
-  const [serviceRows, setServiceRows] = useState<ExperienceRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Three independent row sets, each loading generic-then-near-you. They share
+  // a single geolocation lookup; see getApproximateLocation.
+  const homes = useNearbyRows<FeaturedRow>(useCallback((c?: RowCoords) => listingsApi.featured(c), []));
+  const experiences = useNearbyRows<ExperienceRow>(
+    useCallback((c?: RowCoords) => experiencesApi.featured("experience", c), [])
+  );
+  const services = useNearbyRows<ExperienceRow>(
+    useCallback((c?: RowCoords) => experiencesApi.featured("service", c), [])
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-    // Set once a location-ranked response has been applied. The generic rows
-    // are three requests batched together while the localised ones are a
-    // single request off a cached IP lookup, so the localised answer usually
-    // arrives FIRST — without these flags the slower generic batch landed
-    // afterwards and overwrote it, which is why a reload kept showing Lagos.
-    const localised = { homes: false, experiences: false, services: false };
-
-    // Paint the generic (busiest-cities) rows straight away rather than holding
-    // the page behind a geolocation round-trip that may be waiting on a
-    // permission prompt.
-    Promise.allSettled([listingsApi.featured(), experiencesApi.featured("experience"), experiencesApi.featured("service")])
-      .then(([homes, exps, svcs]) => {
-        if (cancelled) return;
-        if (!localised.homes && homes.status === "fulfilled") setHomeRows(homes.value);
-        if (!localised.experiences && exps.status === "fulfilled") setExperienceRows(exps.value);
-        if (!localised.services && svcs.status === "fulfilled") setServiceRows(svcs.value);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    // Then localise: once we know roughly where the visitor is, swap every row
-    // set for the cities nearest them, the way the real landing page opens on
-    // somewhere you could actually drive to.
-    getApproximateLocation()
-      .then((pos) => {
-        if (!pos || cancelled) return;
-        const coords = { latitude: pos.latitude, longitude: pos.longitude };
-        listingsApi
-          .featured(coords)
-          .then((rows) => {
-            if (cancelled || !rows.length) return;
-            localised.homes = true;
-            setHomeRows(rows);
-          })
-          .catch(() => {});
-        experiencesApi
-          .featured("experience", coords)
-          .then((rows) => {
-            if (cancelled || !rows.length) return;
-            localised.experiences = true;
-            setExperienceRows(rows);
-          })
-          .catch(() => {});
-        experiencesApi
-          .featured("service", coords)
-          .then((rows) => {
-            if (cancelled || !rows.length) return;
-            localised.services = true;
-            setServiceRows(rows);
-          })
-          .catch(() => {});
-      })
-      .catch(() => {
-        // No location (denied, unavailable, offline) — the generic rows stand.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const homeRows = homes.rows;
+  const experienceRows = experiences.rows;
+  const serviceRows = services.rows;
+  const loading = homes.loading && experiences.loading && services.loading;
 
   if (loading) {
     return (

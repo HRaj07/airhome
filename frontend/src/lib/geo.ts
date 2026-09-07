@@ -265,6 +265,15 @@ export async function currencyFromIp(): Promise<string | null> {
 }
 
 
+export interface ApproximateLocation {
+  latitude: number;
+  longitude: number;
+  precise: boolean;
+}
+
+/** One lookup per page load, shared by every caller of getApproximateLocation. */
+let approximateLocationInFlight: Promise<ApproximateLocation | null> | null = null;
+
 /**
  * Coarse location for ranking carousel rows. Never throws and never nags.
  *
@@ -279,12 +288,17 @@ export async function currencyFromIp(): Promise<string | null> {
  *
  * Returns null only when every source fails, which callers read as "leave the
  * generic rows alone".
+ *
+ * Memoised for the life of the page: the "All" tab asks for homes, experiences
+ * and services independently, and without this each one would fire its own
+ * geolocation prompt and IP lookup for the same answer.
  */
-export async function getApproximateLocation(): Promise<{
-  latitude: number;
-  longitude: number;
-  precise: boolean;
-} | null> {
+export function getApproximateLocation(): Promise<ApproximateLocation | null> {
+  approximateLocationInFlight ??= resolveApproximateLocation();
+  return approximateLocationInFlight;
+}
+
+async function resolveApproximateLocation(): Promise<ApproximateLocation | null> {
   let denied = false;
   if (typeof navigator !== "undefined" && navigator.permissions?.query) {
     try {
