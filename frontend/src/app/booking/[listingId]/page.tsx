@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { CheckCircle2, CreditCard, Smartphone, Wallet } from "lucide-react";
@@ -27,7 +27,16 @@ const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: typeof CreditCa
 
 const UPI_ID_RE = /^[\w.\-]{2,}@[a-zA-Z]{2,}$/;
 
+/** Wrapped so useSearchParams() below doesn't break static prerendering. */
 export default function BookingPage() {
+  return (
+    <Suspense fallback={null}>
+      <BookingContent />
+    </Suspense>
+  );
+}
+
+function BookingContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();

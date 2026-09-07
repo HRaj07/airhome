@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, MapPin, Home as HomeIcon, PartyPopper, ConciergeBell, Sparkles, LocateFixed, Building2 } from "lucide-react";
 import DateRangeCalendar from "./DateRangeCalendar";
@@ -33,7 +33,29 @@ type Section = "where" | "when" | "who";
  * have inventory (cities and neighbourhoods), so a suggestion can never lead
  * to an empty results page.
  */
-export default function HeaderSearch({
+/**
+ * useSearchParams() opts a component out of static prerendering unless it sits
+ * inside a Suspense boundary. This control lives in the Navbar, which the root
+ * layout renders on every route, so without this wrapper `next build` fails to
+ * prerender the entire site. `next dev` never prerenders, so the error only
+ * ever appears in a production build.
+ */
+export default function HeaderSearch(props: HeaderSearchProps) {
+  return (
+    <Suspense fallback={null}>
+      <HeaderSearchContent {...props} />
+    </Suspense>
+  );
+}
+
+interface HeaderSearchProps {
+  mode: SearchMode;
+  expanded: boolean;
+  onExpand: () => void;
+  onCollapse: () => void;
+}
+
+function HeaderSearchContent({
   mode,
   expanded,
   onExpand,

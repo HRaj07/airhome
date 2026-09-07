@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useToast } from "@/lib/toast-context";
 import HeaderSearch, { SearchMode } from "./HeaderSearch";
+import HostTypeModal from "./HostTypeModal";
 import LocaleModal from "./LocaleModal";
 import AuthModal from "./AuthModal";
 import { useLocale } from "@/lib/locale-context";
@@ -221,6 +222,7 @@ export default function Navbar() {
   const pathname = usePathname();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hostModalOpen, setHostModalOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [atTop, setAtTop] = useState(true);
@@ -287,8 +289,21 @@ export default function Navbar() {
     router.push("/");
   }
 
+  // A signed-in host goes straight to their dashboard. A signed-in guest gets
+  // Airbnb's "What would you like to host?" chooser, which upgrades the account
+  // in place — sending them to /signup would ask them to make a second account.
+  // Signed-out visitors still sign up, with the host box pre-ticked.
   const hostHref = user?.is_host ? "/host/dashboard" : "/signup?host=1";
   const hostLabel = user?.is_host ? t("Switch to hosting") : t("Become a host");
+  const hostNeedsChooser = !!user && !user.is_host;
+
+  function onHostClick(e: React.MouseEvent) {
+    setMenuOpen(false);
+    // Hosts follow the link to their dashboard; guests get the chooser instead.
+    if (!hostNeedsChooser) return;
+    e.preventDefault();
+    setHostModalOpen(true);
+  }
 
   const menuItem =
     "flex w-full items-center gap-3 px-5 py-3.5 text-left text-[15px] hover:bg-neutral-100 dark:hover:bg-neutral-800";
@@ -347,7 +362,7 @@ export default function Navbar() {
             {/* Right actions */}
             <div className="flex shrink-0 items-center gap-2">
               {user ? (
-                <Link href={hostHref} className="hidden rounded-full px-4 py-2.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:block">
+                <Link href={hostHref} onClick={onHostClick} className="hidden rounded-full px-4 py-2.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:block">
                   {hostLabel}
                 </Link>
               ) : (
@@ -428,7 +443,7 @@ export default function Navbar() {
                         </div>
 
                         <div className="border-t border-neutral-200 dark:border-neutral-800">
-                          <Link href={hostHref} onClick={() => setMenuOpen(false)} className={`${menuItem} items-start py-3.5`}>
+                          <Link href={hostHref} onClick={onHostClick} className={`${menuItem} items-start py-3.5`}>
                             <div className="flex-1">
                               <p className="font-medium">{hostLabel}</p>
                               <p className="text-xs text-hof dark:text-neutral-400">
@@ -503,6 +518,7 @@ export default function Navbar() {
       {overlay && <div className="fixed inset-0 z-30 bg-black/30" onClick={collapse} aria-hidden="true" />}
       {localeOpen && <LocaleModal onClose={() => setLocaleOpen(false)} />}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      {hostModalOpen && <HostTypeModal onClose={() => setHostModalOpen(false)} />}
     </>
   );
 }

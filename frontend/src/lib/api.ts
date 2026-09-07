@@ -169,7 +169,7 @@ export const hostApi = {
 export const usersApi = {
   profile: (id: number | string) => request<UserProfile>(`/users/${id}`),
   /** Edit your own profile. Send only the fields that changed. */
-  updateMe: (data: { full_name?: string; bio?: string; home_city?: string; languages?: string }) =>
+  updateMe: (data: { full_name?: string; bio?: string; home_city?: string; languages?: string; is_host?: boolean }) =>
     request<User>("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
 };
 

@@ -31,6 +31,12 @@ def update_me(
     of being parsed as an integer id.
     """
     changes = payload.model_dump(exclude_unset=True, exclude_none=True)
+
+    # Becoming a host is a one-way upgrade. Turning it off would leave a
+    # non-host owning listings that nothing in the UI can reach or manage.
+    if changes.get("is_host") is False:
+        raise HTTPException(status_code=400, detail="An account cannot stop being a host")
+
     for field, value in changes.items():
         setattr(current_user, field, value.strip() if isinstance(value, str) else value)
     db.commit()

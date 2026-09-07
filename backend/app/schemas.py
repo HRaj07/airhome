@@ -60,6 +60,10 @@ class UpdateProfileRequest(BaseModel):
     bio: Optional[str] = Field(default=None, max_length=1000)
     home_city: Optional[str] = Field(default=None, max_length=120)
     languages: Optional[str] = Field(default=None, max_length=200)
+    #: Guests become hosts from "Become a host" without signing up again. Only
+    #: promotion is accepted — see the router, which rejects `false`, since
+    #: demoting an account would orphan its listings and their bookings.
+    is_host: Optional[bool] = Field(default=None)
 
 
 class RegisterRequest(BaseModel):
