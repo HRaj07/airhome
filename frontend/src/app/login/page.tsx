@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { ApiError } from "@/lib/api";
 import { useLocale } from "@/lib/locale-context";
+import SocialAuthButtons, { AuthDivider } from "@/components/SocialAuthButtons";
 
 export default function LoginPage() {
   return (
@@ -83,6 +84,11 @@ function LoginForm() {
           {submitting ? "..." : t("Log in")}
         </button>
       </form>
+
+      <div className="mt-5 space-y-4">
+        <AuthDivider />
+        <SocialAuthButtons action="Log in" />
+      </div>
 
       <div className="mt-4 rounded-lg bg-neutral-50 p-3 text-xs text-hof dark:bg-neutral-900 dark:text-neutral-400">
         <p className="mb-1 font-semibold">Demo accounts (password: password123)</p>

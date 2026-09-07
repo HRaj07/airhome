@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Home as HomeIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { AppleLogo, GoogleLogo } from "./BrandLogos";
+import SocialAuthButtons, { AuthDivider } from "./SocialAuthButtons";
 import { useToast } from "@/lib/toast-context";
 import { useLocale } from "@/lib/locale-context";
 import { ApiError } from "@/lib/api";
@@ -84,10 +84,6 @@ export default function AuthModal({ onClose, defaultHost = false }: { onClose: (
     }
   }
 
-  function socialMock(provider: string) {
-    showToast(`${provider} sign-in isn't wired up in this demo — use an email and password`, "info");
-  }
-
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
@@ -122,31 +118,10 @@ export default function AuthModal({ onClose, defaultHost = false }: { onClose: (
                 Continue
               </button>
 
-              <div className="flex items-center gap-3 py-1 text-xs text-hof dark:text-neutral-400">
-                <span className="h-px flex-1 bg-neutral-200 dark:bg-neutral-700" />
-                or
-                <span className="h-px flex-1 bg-neutral-200 dark:bg-neutral-700" />
-              </div>
+              <AuthDivider />
 
               {/* Icon-only square buttons, as on the real modal */}
-              <div className="flex justify-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => socialMock("Google")}
-                  aria-label="Continue with Google"
-                  className="flex h-16 w-20 items-center justify-center rounded-lg border border-neutral-300 hover:border-ink hover:bg-neutral-50 dark:border-neutral-600 dark:hover:border-white dark:hover:bg-neutral-800"
-                >
-                  <GoogleLogo size={24} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => socialMock("Apple")}
-                  aria-label="Continue with Apple"
-                  className="flex h-16 w-20 items-center justify-center rounded-lg border border-neutral-300 text-ink hover:border-ink hover:bg-neutral-50 dark:border-neutral-600 dark:text-white dark:hover:border-white dark:hover:bg-neutral-800"
-                >
-                  <AppleLogo size={26} />
-                </button>
-              </div>
+              <SocialAuthButtons compact />
 
               <div className="rounded-lg bg-neutral-50 p-3 text-xs text-hof dark:bg-neutral-800 dark:text-neutral-400">
                 <p className="mb-1 font-semibold">Demo accounts (password: password123)</p>
