@@ -10,6 +10,7 @@ import { useToast } from "@/lib/toast-context";
 import { useLocale } from "@/lib/locale-context";
 import { experiencesApi, hostApi, listingsApi } from "@/lib/api";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import HostTypeModal from "@/components/HostTypeModal";
 import EmptyState from "@/components/EmptyState";
 import type { HostDashboard, HostExperienceSummary } from "@/lib/types";
 
@@ -24,6 +25,7 @@ export default function HostDashboardPage() {
   // carries its kind rather than just an id.
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; kind: "listing" | "experience" } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && (!user || !user.is_host)) {
@@ -77,9 +79,12 @@ export default function HostDashboardPage() {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-8">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Host dashboard</h1>
-        <Link href="/host/listings/new" className="flex items-center gap-2 rounded-lg bg-rausch px-4 py-2.5 text-sm font-semibold text-white hover:bg-rausch_dark">
-          <Plus size={16} /> Create listing
-        </Link>
+        <button
+          onClick={() => setChooserOpen(true)}
+          className="flex items-center gap-2 rounded-lg bg-rausch px-4 py-2.5 text-sm font-semibold text-white hover:bg-rausch_dark"
+        >
+          <Plus size={16} /> Create new
+        </button>
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -188,6 +193,8 @@ export default function HostDashboardPage() {
           </div>
         )}
       </section>
+
+      {chooserOpen && <HostTypeModal onClose={() => setChooserOpen(false)} />}
 
       {deleteTarget && (
         <ConfirmDialog

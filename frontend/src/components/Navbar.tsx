@@ -305,6 +305,11 @@ export default function Navbar() {
     setHostModalOpen(true);
   }
 
+  function openChooser() {
+    setMenuOpen(false);
+    setHostModalOpen(true);
+  }
+
   const menuItem =
     "flex w-full items-center gap-3 px-5 py-3.5 text-left text-[15px] hover:bg-neutral-100 dark:hover:bg-neutral-800";
 
@@ -452,6 +457,17 @@ export default function Navbar() {
                             </div>
                             <span aria-hidden="true" className="text-4xl leading-none">🧑‍💼</span>
                           </Link>
+                          {user?.is_host && (
+                            <button onClick={openChooser} className={`${menuItem} items-start py-3.5`}>
+                              <div className="flex-1">
+                                <p className="font-medium">{t("Host something new")}</p>
+                                <p className="text-xs text-hof dark:text-neutral-400">
+                                  {t("Add another home, experience or service.")}
+                                </p>
+                              </div>
+                              <span aria-hidden="true" className="text-4xl leading-none">➕</span>
+                            </button>
+                          )}
                         </div>
 
                         <div className="border-t border-neutral-200 dark:border-neutral-800">
