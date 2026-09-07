@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { ApiError } from "@/lib/api";
+import { useLocale } from "@/lib/locale-context";
 
 export default function LoginPage() {
   return (
@@ -18,6 +19,7 @@ export default function LoginPage() {
 function LoginForm() {
   const { login } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/";
@@ -51,10 +53,10 @@ function LoginForm() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-16 sm:px-8">
-      <h1 className="mb-6 text-2xl font-semibold">Log in</h1>
+      <h1 className="mb-6 text-2xl font-semibold">{t("Log in")}</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Email</label>
+          <label className="mb-1 block text-sm font-medium">{t("Email")}</label>
           <input
             type="email"
             required
@@ -64,7 +66,7 @@ function LoginForm() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Password</label>
+          <label className="mb-1 block text-sm font-medium">{t("Password")}</label>
           <input
             type="password"
             required
@@ -78,7 +80,7 @@ function LoginForm() {
           disabled={submitting}
           className="w-full rounded-lg bg-rausch py-3 font-semibold text-white hover:bg-rausch_dark disabled:opacity-50"
         >
-          {submitting ? "Logging in..." : "Log in"}
+          {submitting ? "..." : t("Log in")}
         </button>
       </form>
 
@@ -95,7 +97,7 @@ function LoginForm() {
       <p className="mt-6 text-sm text-hof dark:text-neutral-400">
         Don&apos;t have an account?{" "}
         <Link href="/signup" className="font-semibold text-ink underline dark:text-white">
-          Sign up
+          {t("Sign up")}
         </Link>
       </p>
     </div>

@@ -2,6 +2,7 @@
 
 import { SlidersHorizontal } from "lucide-react";
 import type { Amenity } from "@/lib/types";
+import { useLocale } from "@/lib/locale-context";
 
 /** Quick amenity toggles shown under the header on the results page, like Airbnb's chip row. */
 export default function FilterChips({
@@ -17,6 +18,7 @@ export default function FilterChips({
   onOpenFilters: () => void;
   filtersActive: boolean;
 }) {
+  const { t } = useLocale();
   const quick = amenities.filter((a) => ["Washer", "Wifi", "Free parking", "Kitchen", "Air conditioning", "Pets allowed", "Pool", "Dedicated workspace"].includes(a.name));
 
   const chip = (active: boolean) =>
@@ -30,7 +32,7 @@ export default function FilterChips({
     <div className="sticky top-20 z-30 -mx-4 border-b border-neutral-100 bg-white px-4 dark:border-neutral-900 dark:bg-neutral-950 sm:mx-0 sm:px-0">
       <div className="scrollbar-none flex items-center gap-2 overflow-x-auto py-4">
       <button onClick={onOpenFilters} className={`${chip(filtersActive)} flex items-center gap-2`}>
-        <SlidersHorizontal size={16} /> Filters
+        <SlidersHorizontal size={16} /> {t("Filters")}
       </button>
       <span className="mx-1 h-6 w-px shrink-0 bg-neutral-300 dark:bg-neutral-700" />
       {quick.map((a) => (

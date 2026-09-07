@@ -60,8 +60,13 @@ fullstack assignment.
   filterable co-host directory with intro requests.
 - **Language & currency modal** (globe icon in the header) — pick a display currency
   (USD, INR, EUR, GBP, JPY, ...); every price on the site re-renders in it. Prices are
-  stored in USD and converted with a fixed demo rate table. Language selection is stored
-  but interface translation is a placeholder.
+  stored in USD and converted with a fixed demo rate table. Picking a language
+  translates the interface (header, search bar, menu, cards, listing page, booking
+  flow, trips, auth) into Hindi, Marathi, Kannada, Spanish, French, German, Japanese,
+  Portuguese, Italian, Indonesian, Chinese, Korean or Dutch; other regions fall back to
+  English. With the Translation toggle on, listing/experience descriptions and reviews
+  are shown in that language too (with Airbnb's "Translated from English · Show
+  original" note) — see `src/lib/i18n.ts`.
 - **Toasts / notifications**, **dark mode toggle** (in the hamburger menu), and a **fully
   responsive** layout (mobile, tablet, desktop).
 - **Seed data** — 5 hosts, 4 guests, 48 listings across 8 cities (6 neighbourhoods per
@@ -265,7 +270,7 @@ Visit `http://localhost:3000`.
 cd backend && python3 tests/test_pricing.py
 
 # Frontend — pure calendar/date and geo logic, run directly with tsx (no test runner needed)
-cd frontend && npx tsx src/lib/date.test.ts && npx tsx src/lib/geo.test.ts
+cd frontend && npx tsx src/lib/date.test.ts && npx tsx src/lib/geo.test.ts && npx tsx src/lib/i18n.test.ts
 ```
 
 ---
@@ -362,6 +367,12 @@ git push -u origin main
 - The header reproduces Airbnb's layout and interaction (compact pill → expanded bar,
   tabs, globe modal, hamburger menu) but uses an original "airhome" wordmark and icon
   rather than Airbnb's trademarked logo.
+- Translation is dictionary-based (`src/lib/i18n.ts`), not a live machine-translation
+  service: interface strings are keyed by their English text, and host-written content
+  is translated when it matches one of the demo's seed descriptions/reviews (text a host
+  types in themselves is shown as written). This keeps the feature fully offline and
+  deterministic; swapping in a translation API would be a one-function change in
+  `translateContent`.
 - Referral invites and co-host intro requests are stored in the browser (localStorage)
   rather than the database — they don't affect any other user, so a server round-trip
   would add tables without adding behaviour.

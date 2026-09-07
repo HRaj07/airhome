@@ -12,6 +12,7 @@ import RowsSkeleton from "@/components/RowsSkeleton";
 import { amenitiesApi, listingsApi } from "@/lib/api";
 import { fromISODate, nightsBetween, formatShort } from "@/lib/date";
 import type { Amenity, FeaturedRow, ListingCard as ListingCardType } from "@/lib/types";
+import { useLocale } from "@/lib/locale-context";
 
 // Leaflet is browser-only; never render the map on the server.
 const ListingsMap = dynamic(() => import("@/components/ListingsMap"), { ssr: false });
@@ -28,6 +29,7 @@ export default function HomesPage() {
 
 function HomesContent() {
   const searchParams = useSearchParams();
+  const { t } = useLocale();
   const location = searchParams.get("location") || "";
   const checkIn = searchParams.get("check_in") || "";
   const checkOut = searchParams.get("check_out") || "";
@@ -147,7 +149,7 @@ function HomesContent() {
   const heading =
     loading && results.length === 0
       ? "Searching..."
-      : `${total === 0 ? "No" : total > 1000 ? "Over 1,000" : total} ${total === 1 ? "home" : "homes"}${location ? ` in ${location}` : ""}`;
+      : `${total === 0 ? "0" : total > 1000 ? "1,000+" : total} ${total === 1 ? t("home") : t("homes")}${location ? ` · ${location}` : ""}`;
 
   return (
     <div className="mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-10">
@@ -171,7 +173,7 @@ function HomesContent() {
           </div>
 
           {!loading && results.length === 0 ? (
-            <EmptyState title="No exact matches" description="Try changing or removing some of your filters or adjusting your search area." />
+            <EmptyState title={t("No exact matches")} description={t("Try changing or removing some of your filters or adjusting your search area.")} />
           ) : (
             <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
               {results.map((l) => (

@@ -28,7 +28,7 @@ export default function ListingCard({
 }) {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const { formatPrice } = useLocale();
+  const { formatPrice, t } = useLocale();
   const [wishlisted, setWishlisted] = useState(listing.is_wishlisted);
   const [busy, setBusy] = useState(false);
 
@@ -83,7 +83,7 @@ export default function ListingCard({
 
         {isGuestFavourite(listing) && (
           <span className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-semibold text-ink shadow-sm">
-            Guest favourite
+            {t("Guest favourite")}
           </span>
         )}
 
@@ -102,13 +102,13 @@ export default function ListingCard({
 
       <div className="mt-2.5 space-y-0.5">
         <p className="truncate text-[15px] font-medium text-ink dark:text-neutral-100">
-          {PROPERTY_TYPE_SHORT[listing.property_type]} in {place}
+          {t("{type} in {place}", { type: t(PROPERTY_TYPE_SHORT[listing.property_type]), place })}
         </p>
         <p className="truncate text-sm text-hof dark:text-neutral-400">
-          {formatPrice(total)} for {nights} night{nights !== 1 ? "s" : ""}
+          {formatPrice(total)} {nights === 1 ? t("for 1 night") : t("for {n} nights", { n: nights })}
           <span className="mx-1">·</span>
           <Star size={12} className="mb-0.5 inline fill-current" />{" "}
-          {listing.review_count > 0 ? listing.rating_avg.toFixed(listing.rating_avg % 1 === 0 ? 1 : 2) : "New"}
+          {listing.review_count > 0 ? listing.rating_avg.toFixed(listing.rating_avg % 1 === 0 ? 1 : 2) : t("New")}
         </p>
       </div>
     </Link>

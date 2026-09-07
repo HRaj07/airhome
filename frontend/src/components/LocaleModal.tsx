@@ -8,10 +8,9 @@ import { useToast } from "@/lib/toast-context";
 type Tab = "language" | "currency";
 
 export default function LocaleModal({ onClose, initialTab = "language" }: { onClose: () => void; initialTab?: Tab }) {
-  const { currency, setCurrency, language, setLanguage } = useLocale();
+  const { currency, setCurrency, language, setLanguage, t, translateEnabled, setTranslateEnabled } = useLocale();
   const { showToast } = useToast();
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [translate, setTranslate] = useState(true);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -64,10 +63,10 @@ export default function LocaleModal({ onClose, initialTab = "language" }: { onCl
           </button>
           <div className="mt-4 flex gap-8 border-b border-neutral-200 dark:border-neutral-800">
             <button onClick={() => setTab("language")} className={tabClass(tab === "language")}>
-              Language and region
+              {t("Language and region")}
             </button>
             <button onClick={() => setTab("currency")} className={tabClass(tab === "currency")}>
-              Currency
+              {t("Currency")}
             </button>
           </div>
         </div>
@@ -78,25 +77,25 @@ export default function LocaleModal({ onClose, initialTab = "language" }: { onCl
               <div className="flex max-w-2xl items-center justify-between rounded-2xl bg-neutral-100 p-5 dark:bg-neutral-800">
                 <div>
                   <p className="flex items-center gap-2 text-lg font-medium">
-                    Translation <Languages size={18} />
+                    {t("Translation")} <Languages size={18} />
                   </p>
                   <p className="mt-1 text-sm text-hof dark:text-neutral-400">
-                    Automatically translate descriptions and reviews to English.
+                    {t("Automatically translate descriptions and reviews.")}
                   </p>
                 </div>
                 <button
                   role="switch"
-                  aria-checked={translate}
-                  onClick={() => setTranslate((t) => !t)}
-                  className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${translate ? "bg-ink dark:bg-white" : "bg-neutral-300 dark:bg-neutral-600"}`}
+                  aria-checked={translateEnabled}
+                  onClick={() => setTranslateEnabled(!translateEnabled)}
+                  className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${translateEnabled ? "bg-ink dark:bg-white" : "bg-neutral-300 dark:bg-neutral-600"}`}
                 >
                   <span
-                    className={`absolute top-1 h-6 w-6 rounded-full bg-white transition-all dark:bg-neutral-900 ${translate ? "left-7" : "left-1"}`}
+                    className={`absolute top-1 h-6 w-6 rounded-full bg-white transition-all dark:bg-neutral-900 ${translateEnabled ? "left-7" : "left-1"}`}
                   />
                 </button>
               </div>
 
-              <h2 className="mt-8 text-2xl font-semibold">Suggested languages and regions</h2>
+              <h2 className="mt-8 text-2xl font-semibold">{t("Suggested languages and regions")}</h2>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                 {SUGGESTED_LANGUAGES.map((l) => (
                   <button key={`s-${l.code}`} onClick={() => pickLanguage(l.code)} className={optionClass(language.code === l.code)}>
@@ -106,7 +105,7 @@ export default function LocaleModal({ onClose, initialTab = "language" }: { onCl
                 ))}
               </div>
 
-              <h2 className="mt-10 text-2xl font-semibold">Choose a language and region</h2>
+              <h2 className="mt-10 text-2xl font-semibold">{t("Choose a language and region")}</h2>
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                 {ALL_LANGUAGES.map((l) => (
                   <button key={l.code} onClick={() => pickLanguage(l.code)} className={optionClass(language.code === l.code)}>
@@ -118,7 +117,7 @@ export default function LocaleModal({ onClose, initialTab = "language" }: { onCl
             </>
           ) : (
             <>
-              <h2 className="text-2xl font-semibold">Choose a currency</h2>
+              <h2 className="text-2xl font-semibold">{t("Choose a currency")}</h2>
               <p className="mt-1 text-sm text-hof dark:text-neutral-400">
                 Prices are stored in USD and converted with a fixed demo exchange rate.
               </p>

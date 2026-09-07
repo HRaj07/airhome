@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { ApiError } from "@/lib/api";
+import { useLocale } from "@/lib/locale-context";
 
 export default function SignupPage() {
   return (
@@ -18,6 +19,7 @@ export default function SignupPage() {
 function SignupForm() {
   const { register } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const wantsHost = searchParams.get("host") === "1";
@@ -44,10 +46,10 @@ function SignupForm() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-16 sm:px-8">
-      <h1 className="mb-6 text-2xl font-semibold">Sign up</h1>
+      <h1 className="mb-6 text-2xl font-semibold">{t("Sign up")}</h1>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Full name</label>
+          <label className="mb-1 block text-sm font-medium">{t("Full name")}</label>
           <input
             required
             value={fullName}
@@ -56,7 +58,7 @@ function SignupForm() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Email</label>
+          <label className="mb-1 block text-sm font-medium">{t("Email")}</label>
           <input
             type="email"
             required
@@ -66,7 +68,7 @@ function SignupForm() {
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Password</label>
+          <label className="mb-1 block text-sm font-medium">{t("Password")}</label>
           <input
             type="password"
             required
@@ -86,13 +88,13 @@ function SignupForm() {
           disabled={submitting}
           className="w-full rounded-lg bg-rausch py-3 font-semibold text-white hover:bg-rausch_dark disabled:opacity-50"
         >
-          {submitting ? "Creating account..." : "Sign up"}
+          {submitting ? "..." : t("Sign up")}
         </button>
       </form>
       <p className="mt-6 text-sm text-hof dark:text-neutral-400">
         Already have an account?{" "}
         <Link href="/login" className="font-semibold text-ink underline dark:text-white">
-          Log in
+          {t("Log in")}
         </Link>
       </p>
     </div>

@@ -9,6 +9,7 @@ import { formatDateRange, formatShort, fromISODate, toISODate } from "@/lib/date
 import { experiencesApi } from "@/lib/api";
 import { useToast } from "@/lib/toast-context";
 import { DESTINATIONS, getCurrentPosition, nearestDestination } from "@/lib/geo";
+import { useLocale } from "@/lib/locale-context";
 
 export type SearchMode = "homes" | "experiences" | "services";
 
@@ -48,6 +49,7 @@ export default function HeaderSearch({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showToast } = useToast();
+  const { t } = useLocale();
   const cfg = MODE_CONFIG[mode];
   const [locating, setLocating] = useState(false);
 
@@ -130,12 +132,12 @@ export default function HeaderSearch({
     router.push(`${cfg.path}?${qs || "q="}`);
   }
 
-  const guestsLabel = guests > 0 ? `${guests} guest${guests > 1 ? "s" : ""}` : "";
+  const guestsLabel = guests > 0 ? `${guests} ${guests > 1 ? t("guests") : t("guest")}` : "";
   const whenLabel =
     mode === "homes" ? (checkIn ? formatDateRange(checkIn, checkOut) : "") : checkIn ? formatShort(checkIn) : "";
   const thirdLabel = mode === "services" ? category : guestsLabel;
-  const thirdPlaceholder = mode === "services" ? "Add service" : "Add guests";
-  const thirdTitle = mode === "services" ? "Type of service" : "Who";
+  const thirdPlaceholder = mode === "services" ? t("Add service") : t("Add guests");
+  const thirdTitle = mode === "services" ? t("Type of service") : t("Who");
   const CompactIcon = cfg.compactIcon;
 
   // ---------- compact pill ----------
@@ -150,12 +152,12 @@ export default function HeaderSearch({
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-rausch dark:bg-neutral-800">
           <CompactIcon size={16} />
         </span>
-        <span className="px-3 font-medium">{location || cfg.compactLabel}</span>
+        <span className="px-3 font-medium">{location || t(cfg.compactLabel)}</span>
         <span className="h-6 w-px bg-neutral-300 dark:bg-neutral-700" />
-        <span className="px-3 font-medium">{whenLabel || "Anytime"}</span>
+        <span className="px-3 font-medium">{whenLabel || t("Anytime")}</span>
         <span className="h-6 w-px bg-neutral-300 dark:bg-neutral-700" />
         <span className={`px-3 ${thirdLabel ? "font-medium" : "text-hof dark:text-neutral-400"}`}>
-          {thirdLabel || (mode === "services" ? "Any service" : "Add guests")}
+          {thirdLabel || (mode === "services" ? t("Any service") : t("Add guests"))}
         </span>
         <span className="ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-rausch text-white">
           <Search size={14} strokeWidth={3} />
@@ -182,18 +184,18 @@ export default function HeaderSearch({
         }`}
       >
         <button type="button" onClick={() => setSection(section === "where" ? null : "where")} className={sectionBtn("where")}>
-          <span className="block text-xs font-semibold">Where</span>
+          <span className="block text-xs font-semibold">{t("Where")}</span>
           <span className={`block truncate text-sm ${location ? "text-ink dark:text-white" : "text-hof dark:text-neutral-400"}`}>
-            {location || cfg.wherePlaceholder}
+            {location || t(cfg.wherePlaceholder)}
           </span>
         </button>
 
         <span className="hidden h-8 w-px bg-neutral-300 dark:bg-neutral-700 sm:block" />
 
         <button type="button" onClick={() => setSection(section === "when" ? null : "when")} className={sectionBtn("when")}>
-          <span className="block text-xs font-semibold">When</span>
+          <span className="block text-xs font-semibold">{t("When")}</span>
           <span className={`block truncate text-sm ${whenLabel ? "text-ink dark:text-white" : "text-hof dark:text-neutral-400"}`}>
-            {whenLabel || "Add dates"}
+            {whenLabel || t("Add dates")}
           </span>
         </button>
 
@@ -226,11 +228,11 @@ export default function HeaderSearch({
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submit()}
-              placeholder="Search by city or country"
+              placeholder={t("Search destinations")}
               className="w-full bg-transparent text-sm outline-none"
             />
           </div>
-          <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-hof dark:text-neutral-400">Suggested destinations</p>
+          <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-hof dark:text-neutral-400">{t("Suggested destinations")}</p>
           <ul className="max-h-72 overflow-y-auto">
             {!location && (
               <li>
@@ -244,8 +246,8 @@ export default function HeaderSearch({
                     <LocateFixed size={18} />
                   </span>
                   <span>
-                    <span className="block font-medium">{locating ? "Finding your location..." : "Nearby"}</span>
-                    <span className="block text-xs text-hof dark:text-neutral-400">Find what&apos;s around you</span>
+                    <span className="block font-medium">{locating ? t("Finding your location...") : t("Nearby")}</span>
+                    <span className="block text-xs text-hof dark:text-neutral-400">{t("Find what's around you")}</span>
                   </span>
                 </button>
               </li>
@@ -293,14 +295,14 @@ export default function HeaderSearch({
         <div className="absolute right-0 top-full z-30 mt-3 w-80 rounded-3xl border border-neutral-200 bg-white p-6 shadow-popover dark:border-neutral-700 dark:bg-neutral-900">
           <GuestSelector guests={Math.max(guests, 1)} onChange={setGuests} />
           <button onClick={submit} className="mt-3 w-full rounded-lg bg-rausch py-2.5 text-sm font-semibold text-white hover:bg-rausch_dark">
-            Search
+            {t("Search")}
           </button>
         </div>
       )}
 
       {section === "who" && mode === "services" && (
         <div className="absolute right-0 top-full z-30 mt-3 w-80 rounded-3xl border border-neutral-200 bg-white p-4 shadow-popover dark:border-neutral-700 dark:bg-neutral-900">
-          <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-hof dark:text-neutral-400">Type of service</p>
+          <p className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-hof dark:text-neutral-400">{t("Type of service")}</p>
           <ul className="max-h-72 overflow-y-auto">
             <li>
               <button
@@ -314,7 +316,7 @@ export default function HeaderSearch({
                 <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-neutral-100 dark:bg-neutral-800">
                   <Sparkles size={16} />
                 </span>
-                Any service
+                {t("Any service")}
               </button>
             </li>
             {categories.map((c) => (
@@ -338,7 +340,7 @@ export default function HeaderSearch({
             ))}
           </ul>
           <button onClick={submit} className="mt-3 w-full rounded-lg bg-rausch py-2.5 text-sm font-semibold text-white hover:bg-rausch_dark">
-            Search
+            {t("Search")}
           </button>
         </div>
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Minus, Plus } from "lucide-react";
+import { useLocale } from "@/lib/locale-context";
 
 export default function GuestSelector({
   guests,
@@ -11,11 +12,12 @@ export default function GuestSelector({
   onChange: (n: number) => void;
   max?: number;
 }) {
+  const { t } = useLocale();
   return (
     <div className="flex items-center justify-between py-2">
       <div>
-        <p className="font-medium text-ink dark:text-neutral-100">Guests</p>
-        <p className="text-sm text-hof dark:text-neutral-400">How many people are coming?</p>
+        <p className="font-medium text-ink dark:text-neutral-100">{t("Guests")}</p>
+        <p className="text-sm text-hof dark:text-neutral-400">{t("How many people are coming?")}</p>
       </div>
       <div className="flex items-center gap-3">
         <button

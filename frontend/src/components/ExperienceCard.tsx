@@ -16,7 +16,7 @@ export function shortTime(t: string): string {
 }
 
 export default function ExperienceCard({ item, compact = false }: { item: ExperienceCardType; compact?: boolean }) {
-  const { formatPrice } = useLocale();
+  const { formatPrice, t } = useLocale();
   const href = `${KIND_PATH[item.kind]}/${item.id}`;
 
   return (
@@ -49,7 +49,7 @@ export default function ExperienceCard({ item, compact = false }: { item: Experi
       <div className="mt-2.5 space-y-0.5">
         <p className="line-clamp-2 text-[15px] font-medium leading-snug text-ink dark:text-neutral-100">{item.title}</p>
         <p className="truncate text-sm text-hof dark:text-neutral-400">
-          From {formatPrice(item.price_per_guest)} / {item.price_unit}
+          {t("From")} {formatPrice(item.price_per_guest)} / {t(item.price_unit)}
           {item.review_count > 0 && (
             <>
               <span className="mx-1">·</span>

@@ -18,7 +18,7 @@ export default function BookingPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
-  const { formatPrice } = useLocale();
+  const { formatPrice, t } = useLocale();
 
   const listingId = params?.listingId as string;
   const checkInISO = searchParams.get("check_in") || "";
@@ -113,7 +113,7 @@ export default function BookingPage() {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center sm:px-8">
         <CheckCircle2 size={56} className="mx-auto mb-4 text-green-600" />
-        <h1 className="text-2xl font-semibold">Booking confirmed!</h1>
+        <h1 className="text-2xl font-semibold">{t("Booking confirmed!")}</h1>
         <p className="mt-2 text-hof dark:text-neutral-400">
           Your stay at {listing.title} from {formatShort(checkIn)} to {formatShort(checkOut)} is booked.
         </p>
@@ -128,10 +128,10 @@ export default function BookingPage() {
         </div>
         <div className="mt-8 flex justify-center gap-3">
           <button onClick={() => router.push("/trips")} className="rounded-lg bg-rausch px-5 py-2.5 text-sm font-semibold text-white hover:bg-rausch_dark">
-            View My Trips
+            {t("View My Trips")}
           </button>
           <button onClick={() => router.push("/")} className="rounded-lg border border-neutral-300 px-5 py-2.5 text-sm font-semibold dark:border-neutral-700">
-            Back to home
+            {t("Back to home")}
           </button>
         </div>
       </div>
@@ -140,14 +140,14 @@ export default function BookingPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-8">
-      <h1 className="mb-6 text-2xl font-semibold">Confirm and pay</h1>
+      <h1 className="mb-6 text-2xl font-semibold">{t("Confirm and pay")}</h1>
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
         <div>
           <section className="border-b border-neutral-200 pb-6 dark:border-neutral-800">
-            <h2 className="mb-4 text-lg font-semibold">Your trip</h2>
+            <h2 className="mb-4 text-lg font-semibold">{t("Your trip")}</h2>
             <div className="flex justify-between">
               <div>
-                <p className="font-medium">Dates</p>
+                <p className="font-medium">{t("Dates")}</p>
                 <p className="text-sm text-hof dark:text-neutral-400">
                   {formatShort(checkIn)} - {formatShort(checkOut)}
                 </p>
@@ -155,7 +155,7 @@ export default function BookingPage() {
             </div>
             <div className="mt-4 flex justify-between">
               <div>
-                <p className="font-medium">Guests</p>
+                <p className="font-medium">{t("Guests")}</p>
                 <p className="text-sm text-hof dark:text-neutral-400">
                   {guests} guest{guests > 1 ? "s" : ""}
                 </p>
@@ -215,7 +215,7 @@ export default function BookingPage() {
               </div>
             </div>
             <div className="py-4">
-              <h3 className="mb-3 font-semibold">Price details</h3>
+              <h3 className="mb-3 font-semibold">{t("Price details")}</h3>
               {pricing && (
                 <PriceBreakdown
                   nights={nights}
@@ -232,7 +232,7 @@ export default function BookingPage() {
               disabled={submitting}
               className="w-full rounded-xl bg-rausch py-3 font-semibold text-white transition-colors hover:bg-rausch_dark disabled:opacity-50"
             >
-              {submitting ? "Confirming..." : "Confirm and pay"}
+              {submitting ? "..." : t("Confirm and pay")}
             </button>
           </div>
         </div>

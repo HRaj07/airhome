@@ -14,7 +14,7 @@ import type { ListingDetail } from "@/lib/types";
 export default function BookingWidget({ listing }: { listing: ListingDetail }) {
   const router = useRouter();
   const { showToast } = useToast();
-  const { formatPrice } = useLocale();
+  const { formatPrice, t } = useLocale();
   const [checkIn, setCheckIn] = useState<Date | null>(null);
   const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [guests, setGuests] = useState(1);
@@ -50,7 +50,7 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
       <div className="mb-4 flex items-baseline justify-between">
         <p className="text-[22px]">
           <span className="font-semibold">{formatPrice(listing.price_per_night)}</span>{" "}
-          <span className="text-base text-hof dark:text-neutral-400">night</span>
+          <span className="text-base text-hof dark:text-neutral-400">{t("night")}</span>
         </p>
         <StarRating rating={listing.rating_avg} reviewCount={listing.review_count} />
       </div>
@@ -65,8 +65,8 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
             }}
             className="px-3 py-2.5 text-left"
           >
-            <span className="block text-[10px] font-bold uppercase tracking-wide">Check-in</span>
-            <span className="text-sm">{checkIn ? formatShort(checkIn) : "Add date"}</span>
+            <span className="block text-[10px] font-bold uppercase tracking-wide">{t("Check-in")}</span>
+            <span className="text-sm">{checkIn ? formatShort(checkIn) : t("Add date")}</span>
           </button>
           <button
             type="button"
@@ -76,8 +76,8 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
             }}
             className="px-3 py-2.5 text-left"
           >
-            <span className="block text-[10px] font-bold uppercase tracking-wide">Checkout</span>
-            <span className="text-sm">{checkOut ? formatShort(checkOut) : "Add date"}</span>
+            <span className="block text-[10px] font-bold uppercase tracking-wide">{t("Checkout")}</span>
+            <span className="text-sm">{checkOut ? formatShort(checkOut) : t("Add date")}</span>
           </button>
         </div>
         <button
@@ -88,9 +88,9 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
           }}
           className="block w-full px-3 py-2.5 text-left"
         >
-          <span className="block text-[10px] font-bold uppercase tracking-wide">Guests</span>
+          <span className="block text-[10px] font-bold uppercase tracking-wide">{t("Guests")}</span>
           <span className="text-sm">
-            {guests} guest{guests > 1 ? "s" : ""}
+            {guests} {guests > 1 ? t("guests") : t("guest")}
           </span>
         </button>
 
@@ -121,9 +121,9 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
         onClick={handleReserve}
         className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#E61E4D] via-[#E31C5F] to-[#D70466] py-3.5 font-semibold text-white transition-opacity hover:opacity-90"
       >
-        {canReserve ? "Reserve" : "Check availability"}
+        {canReserve ? t("Reserve") : t("Check availability")}
       </button>
-      {canReserve && <p className="mt-3 text-center text-sm text-hof dark:text-neutral-400">You won&apos;t be charged yet</p>}
+      {canReserve && <p className="mt-3 text-center text-sm text-hof dark:text-neutral-400">{t("You won't be charged yet")}</p>}
 
       {nights > 0 && (
         <div className="mt-6 border-t border-neutral-200 pt-4 dark:border-neutral-800">

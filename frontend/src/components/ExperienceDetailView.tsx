@@ -18,6 +18,7 @@ import { useToast } from "@/lib/toast-context";
 import { formatShort, toISODate } from "@/lib/date";
 import type { ExperienceDetail, ExperienceKind } from "@/lib/types";
 import { KIND_PATH } from "@/lib/types";
+import TranslatedText from "./TranslatedText";
 
 function durationLabel(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
@@ -30,7 +31,7 @@ export default function ExperienceDetailView({ kind }: { kind: ExperienceKind })
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const { formatPrice } = useLocale();
+  const { formatPrice, t } = useLocale();
   const { showToast } = useToast();
   const id = params?.id as string;
 
@@ -146,11 +147,11 @@ export default function ExperienceDetailView({ kind }: { kind: ExperienceKind })
 
           <div className="border-b border-neutral-200 py-6 dark:border-neutral-800">
             <h2 className="mb-3 text-xl font-semibold">What you&apos;ll do</h2>
-            <p className="whitespace-pre-line text-ink dark:text-neutral-200">{item.description}</p>
+            <TranslatedText text={item.description} className="whitespace-pre-line text-ink dark:text-neutral-200" showNote />
           </div>
 
           <div className="border-b border-neutral-200 py-6 dark:border-neutral-800">
-            <h2 className="mb-4 text-xl font-semibold">Where you&apos;ll be</h2>
+            <h2 className="mb-4 text-xl font-semibold">{t("Where you'll be")}</h2>
             <MapEmbed latitude={item.latitude} longitude={item.longitude} label={item.title} />
           </div>
 
@@ -175,8 +176,8 @@ export default function ExperienceDetailView({ kind }: { kind: ExperienceKind })
         <div>
           <div className="sticky top-28 rounded-2xl border border-neutral-200 p-6 shadow-card dark:border-neutral-800">
             <p className="text-[22px]">
-              <span className="font-semibold">From {formatPrice(item.price_per_guest)}</span>{" "}
-              <span className="text-base text-hof dark:text-neutral-400">/ {item.price_unit}</span>
+              <span className="font-semibold">{t("From")} {formatPrice(item.price_per_guest)}</span>{" "}
+              <span className="text-base text-hof dark:text-neutral-400">/ {t(item.price_unit)}</span>
             </p>
 
             <div className="relative mt-4 rounded-xl border border-neutral-400 dark:border-neutral-600">
@@ -201,7 +202,7 @@ export default function ExperienceDetailView({ kind }: { kind: ExperienceKind })
                 }}
                 className="block w-full px-3 py-2.5 text-left"
               >
-                <span className="block text-[10px] font-bold uppercase tracking-wide">Guests</span>
+                <span className="block text-[10px] font-bold uppercase tracking-wide">{t("Guests")}</span>
                 <span className="text-sm">
                   {guests} guest{guests > 1 ? "s" : ""}
                 </span>
@@ -237,7 +238,7 @@ export default function ExperienceDetailView({ kind }: { kind: ExperienceKind })
               onClick={handleReserve}
               className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#E61E4D] via-[#E31C5F] to-[#D70466] py-3.5 font-semibold text-white transition-opacity hover:opacity-90"
             >
-              {date ? "Reserve" : "Check availability"}
+              {date ? t("Reserve") : t("Check availability")}
             </button>
 
             {date && (
@@ -249,7 +250,7 @@ export default function ExperienceDetailView({ kind }: { kind: ExperienceKind })
                   <span>{formatPrice(total, { decimals: 2 })}</span>
                 </div>
                 <div className="flex justify-between border-t border-neutral-200 pt-3 font-semibold dark:border-neutral-800">
-                  <span>Total</span>
+                  <span>{t("Total")}</span>
                   <span>{formatPrice(total, { decimals: 2 })}</span>
                 </div>
               </div>

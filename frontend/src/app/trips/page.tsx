@@ -17,6 +17,7 @@ import { shortTime } from "@/components/ExperienceCard";
 export default function TripsPage() {
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLocale();
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [expBookings, setExpBookings] = useState<ExperienceBooking[]>([]);
@@ -81,7 +82,7 @@ export default function TripsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-8">
-      <h1 className="mb-6 text-2xl font-semibold">My Trips</h1>
+      <h1 className="mb-6 text-2xl font-semibold">{t("My Trips")}</h1>
 
       {nothingBooked ? (
         <EmptyState
@@ -98,7 +99,7 @@ export default function TripsPage() {
         <div className="space-y-10">
           {upcoming.length > 0 && (
             <section>
-              <h2 className="mb-4 text-lg font-semibold">Upcoming stays</h2>
+              <h2 className="mb-4 text-lg font-semibold">{t("Upcoming stays")}</h2>
               <div className="space-y-4">
                 {upcoming.map((b) => (
                   <TripCard key={b.id} booking={b} onCancel={() => handleCancel(b.id)} cancelling={cancellingId === b.id} />
@@ -143,7 +144,7 @@ export default function TripsPage() {
 }
 
 function TripCard({ booking, onCancel, cancelling }: { booking: Booking; onCancel?: () => void; cancelling?: boolean }) {
-  const { formatPrice } = useLocale();
+  const { formatPrice, t } = useLocale();
   return (
     <div className="flex gap-4 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
       <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800">
@@ -159,7 +160,7 @@ function TripCard({ booking, onCancel, cancelling }: { booking: Booking; onCance
             </Link>
             {booking.status === "cancelled" && (
               <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-hof dark:bg-neutral-800 dark:text-neutral-400">
-                Cancelled
+                {t("Cancelled")}
               </span>
             )}
           </div>
@@ -174,7 +175,7 @@ function TripCard({ booking, onCancel, cancelling }: { booking: Booking; onCance
           <p className="font-semibold">{formatPrice(booking.total_price, { decimals: 2 })}</p>
           {onCancel && booking.status === "confirmed" && (
             <button onClick={onCancel} disabled={cancelling} className="text-sm font-semibold text-rausch underline disabled:opacity-50">
-              {cancelling ? "Cancelling..." : "Cancel booking"}
+              {cancelling ? "..." : t("Cancel booking")}
             </button>
           )}
         </div>

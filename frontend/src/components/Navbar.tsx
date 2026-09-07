@@ -21,6 +21,7 @@ import { useTheme } from "@/lib/theme-context";
 import { useToast } from "@/lib/toast-context";
 import HeaderSearch, { SearchMode } from "./HeaderSearch";
 import LocaleModal from "./LocaleModal";
+import { useLocale } from "@/lib/locale-context";
 
 type Tab = "all" | "homes" | "experiences" | "services";
 
@@ -46,6 +47,7 @@ export default function Navbar() {
   const { user, logout, loading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { showToast } = useToast();
+  const { t } = useLocale();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -95,7 +97,7 @@ export default function Navbar() {
   }
 
   const hostHref = user?.is_host ? "/host/dashboard" : "/signup?host=1";
-  const hostLabel = user?.is_host ? "Switch to hosting" : "Become a host";
+  const hostLabel = user?.is_host ? t("Switch to hosting") : t("Become a host");
 
   const menuItem =
     "flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800";
@@ -126,7 +128,7 @@ export default function Navbar() {
                       }`}
                     >
                       <Icon size={22} strokeWidth={tab === key ? 2.2 : 1.6} />
-                      {label}
+                      {t(label)}
                     </Link>
                   ))}
                 </nav>
@@ -172,25 +174,25 @@ export default function Navbar() {
                         {user && (
                           <div className="border-b border-neutral-200 px-4 pb-3 pt-2 dark:border-neutral-800">
                             <p className="font-semibold">{user.full_name}</p>
-                            <p className="text-xs text-hof dark:text-neutral-400">{user.is_host ? "Host account" : "Guest account"}</p>
+                            <p className="text-xs text-hof dark:text-neutral-400">{user.is_host ? t("Host account") : t("Guest account")}</p>
                           </div>
                         )}
 
                         <Link href="/help" onClick={() => setMenuOpen(false)} className={menuItem}>
-                          <HelpCircle size={20} strokeWidth={1.6} /> Help Centre
+                          <HelpCircle size={20} strokeWidth={1.6} /> {t("Help Centre")}
                         </Link>
 
                         {user && (
                           <div className="border-t border-neutral-200 dark:border-neutral-800">
                             <Link href="/trips" onClick={() => setMenuOpen(false)} className={menuItem}>
-                              Trips
+                              {t("Trips")}
                             </Link>
                             <Link href="/wishlist" onClick={() => setMenuOpen(false)} className={menuItem}>
-                              Wishlist
+                              {t("Wishlist")}
                             </Link>
                             {user.is_host && (
                               <Link href="/host/dashboard" onClick={() => setMenuOpen(false)} className={menuItem}>
-                                Host dashboard
+                                {t("Host dashboard")}
                               </Link>
                             )}
                           </div>
@@ -201,7 +203,7 @@ export default function Navbar() {
                             <div className="flex-1">
                               <p className="font-medium">{hostLabel}</p>
                               <p className="text-xs text-hof dark:text-neutral-400">
-                                {user?.is_host ? "Manage your listings and bookings." : "It's easy to start hosting and earn extra income."}
+                                {user?.is_host ? t("Manage your listings and bookings.") : t("It's easy to start hosting and earn extra income.")}
                               </p>
                             </div>
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rausch/10 text-rausch">
@@ -212,25 +214,25 @@ export default function Navbar() {
 
                         <div className="border-t border-neutral-200 dark:border-neutral-800">
                           <Link href="/refer" onClick={() => setMenuOpen(false)} className={menuItem}>
-                            <UserPlus size={20} strokeWidth={1.6} /> Refer a host
+                            <UserPlus size={20} strokeWidth={1.6} /> {t("Refer a host")}
                           </Link>
                           <Link href="/co-host" onClick={() => setMenuOpen(false)} className={menuItem}>
-                            <Users size={20} strokeWidth={1.6} /> Find a co-host
+                            <Users size={20} strokeWidth={1.6} /> {t("Find a co-host")}
                           </Link>
                           <button onClick={toggleTheme} className={menuItem}>
                             {theme === "dark" ? <Sun size={20} strokeWidth={1.6} /> : <Moon size={20} strokeWidth={1.6} />}
-                            {theme === "dark" ? "Light mode" : "Dark mode"}
+                            {theme === "dark" ? t("Light mode") : t("Dark mode")}
                           </button>
                         </div>
 
                         <div className="border-t border-neutral-200 dark:border-neutral-800">
                           {user ? (
                             <button onClick={handleLogout} className={menuItem}>
-                              Log out
+                              {t("Log out")}
                             </button>
                           ) : (
                             <Link href="/login" onClick={() => setMenuOpen(false)} className={menuItem}>
-                              Log in or sign up
+                              {t("Log in or sign up")}
                             </Link>
                           )}
                         </div>

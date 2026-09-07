@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import { Lang, langFromCode, translate, translateContent } from "./i18n";
 
 /**
  * Currency + language/region preferences, chosen from the globe icon in the
@@ -83,6 +84,14 @@ interface LocaleContextValue {
   setCurrency: (code: CurrencyCode) => void;
   language: LanguageOption;
   setLanguage: (code: string) => void;
+  /** Dictionary language derived from the selected region code (e.g. "hi-IN" -> "hi"). */
+  lang: Lang;
+  /** Translate an interface string (falls back to the English key). */
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  /** Translate host-written content (descriptions, reviews) when the translation toggle is on. */
+  tc: (text: string) => [string, boolean];
+  translateEnabled: boolean;
+  setTranslateEnabled: (on: boolean) => void;
   /** Format a USD amount in the selected currency. */
   formatPrice: (usdAmount: number, opts?: { decimals?: number }) => string;
 }
@@ -92,6 +101,7 @@ const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
 export function LocaleProvider({ children }: { children: ReactNode }) {
   const [currencyCode, setCurrencyCode] = useState<CurrencyCode>("USD");
   const [languageCode, setLanguageCode] = useState<string>("en-US");
+  const [translateEnabled, setTranslateEnabledState] = useState(true);
 
   useEffect(() => {
     try {
@@ -99,8 +109,24 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       const storedLanguage = window.localStorage.getItem("airbnb_language");
       if (storedCurrency && CURRENCIES.some((c) => c.code === storedCurrency)) setCurrencyCode(storedCurrency);
       if (storedLanguage) setLanguageCode(storedLanguage);
+      const storedTranslate = window.localStorage.getItem("airbnb_translate");
+      if (storedTranslate !== null) setTranslateEnabledState(storedTranslate === "1");
     } catch {
       // ignore storage errors
+    }
+  }, []);
+
+  // Keep <html lang> in sync so screen readers / browser translation know the page language.
+  useEffect(() => {
+    document.documentElement.lang = languageCode;
+  }, [languageCode]);
+
+  const setTranslateEnabled = useCallback((on: boolean) => {
+    setTranslateEnabledState(on);
+    try {
+      window.localStorage.setItem("airbnb_translate", on ? "1" : "0");
+    } catch {
+      // ignore
     }
   }, []);
 
@@ -128,6 +154,13 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     SUGGESTED_LANGUAGES.find((l) => l.code === languageCode) ||
     ALL_LANGUAGES[0];
 
+  const lang = langFromCode(languageCode);
+  const t = useCallback((key: string, vars?: Record<string, string | number>) => translate(lang, key, vars), [lang]);
+  const tc = useCallback(
+    (text: string): [string, boolean] => (translateEnabled ? translateContent(lang, text) : [text, false]),
+    [lang, translateEnabled]
+  );
+
   const formatPrice = useCallback(
     (usdAmount: number, opts?: { decimals?: number }) => {
       const amount = usdAmount * currency.rate;
@@ -147,7 +180,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <LocaleContext.Provider value={{ currency, setCurrency, language, setLanguage, formatPrice }}>
+    <LocaleContext.Provider value={{ currency, setCurrency, language, setLanguage, lang, t, tc, translateEnabled, setTranslateEnabled, formatPrice }}>
       {children}
     </LocaleContext.Provider>
   );
