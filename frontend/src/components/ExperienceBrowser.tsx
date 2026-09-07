@@ -105,7 +105,7 @@ function Browser({ kind }: { kind: ExperienceKind }) {
 
   if (!hasSearch) {
     return (
-      <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10 xl:px-16">
         {rowsLoading ? <RowsSkeleton /> : rows.map((row) => <ExperienceCarousel key={row.key} row={row} />)}
         {!rowsLoading && rows.length === 0 && (
           <p className="py-24 text-center text-hof dark:text-neutral-400">No {noun}s yet. Run the backend seed script to load demo data.</p>
@@ -123,7 +123,7 @@ function Browser({ kind }: { kind: ExperienceKind }) {
       : `${total === 0 ? "No" : total} ${noun}${total === 1 ? "" : "s"} ${parts.join(" ")}`.trim();
 
   return (
-    <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10">
+    <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10 xl:px-16">
       <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-[22px] font-semibold">{heading}</h1>
         {(date || guests > 0) && (

@@ -31,7 +31,7 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10 xl:px-16">
         <RowsSkeleton />
       </div>
     );
@@ -59,7 +59,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10">
+    <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10 xl:px-16">
       {sections.length === 0 ? (
         <p className="py-24 text-center text-hof dark:text-neutral-400">
           No listings yet. Run the backend seed script (<code>python -m app.seed</code>) to load demo data.

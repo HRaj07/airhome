@@ -37,7 +37,7 @@ export default function CardPhotos({
   }
 
   return (
-    <div className={`group/photos relative w-full overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800 ${aspect}`}>
+    <div className={`group/photos relative w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800 ${aspect}`}>
       {slides[index] ? (
         <Image
           src={slides[index]}

@@ -59,7 +59,7 @@ export default function Carousel({ title, href, children, itemCount }: { title: 
           </button>
         </div>
       </div>
-      <div ref={trackRef} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:-mx-0 sm:px-0">
+      <div ref={trackRef} className="scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-0 sm:px-0">
         {children}
       </div>
     </section>

@@ -155,22 +155,24 @@ export default function ListingCard({
   return (
     <Link
       href={`/listing/${listing.id}`}
-      className={`group block cursor-pointer ${compact ? "w-[168px] shrink-0 snap-start sm:w-[200px] lg:w-[232px]" : ""}`}
+      className={`group block cursor-pointer ${compact
+          ? "w-[70%] shrink-0 snap-start xs:w-[47%] sm:w-[calc((100%_-_24px)/3)] md:w-[calc((100%_-_36px)/4)] lg:w-[calc((100%_-_48px)/5)] xl:w-[calc((100%_-_60px)/6)] min-[1440px]:w-[calc((100%_-_72px)/7)]"
+          : ""}`}
       title={listing.title}
     >
       <CardPhotos
         photos={photos}
         alt={listing.title}
-        sizes={compact ? "240px" : "(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"}
+        sizes={compact ? "(max-width: 640px) 70vw, (max-width: 1024px) 25vw, 190px" : "(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw"}
         overlay={overlay}
       />
 
       <div className="mt-2.5">
         <p className="truncate text-[15px] font-medium text-ink dark:text-neutral-100">{heading}</p>
-        <p className="truncate text-sm text-hof dark:text-neutral-400">{stay.label}</p>
-        <p className="truncate text-sm text-ink dark:text-neutral-200">
+        <p className="truncate text-sm text-ink dark:text-neutral-200" title={stay.label}>
           <span className="underline decoration-transparent">
-            {formatPrice(total)} {t("total")}
+            {formatPrice(total)}{" "}
+            {stay.nights === 1 ? t("for 1 night") : t("for {n} nights", { n: String(stay.nights) })}
           </span>
           <span className="mx-1 text-hof dark:text-neutral-400">·</span>
           <Star size={12} className="mb-0.5 inline fill-current" /> {ratingLabel}

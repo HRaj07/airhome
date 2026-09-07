@@ -182,7 +182,7 @@ function HomesContent() {
 
   if (!hasSearch) {
     return (
-      <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10">
+      <div className="mx-auto max-w-[1760px] px-4 py-6 sm:px-6 lg:px-10 xl:px-16">
         {rowsLoading ? (
           <RowsSkeleton />
         ) : (
@@ -201,7 +201,7 @@ function HomesContent() {
       : `${total} ${total === 1 ? t("home") : t("homes")}${bounds ? ` ${t("in map area")}` : location ? ` ${t("in")} ${location}` : ""}`;
 
   return (
-    <div className="mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-10">
+    <div className="mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-10 xl:px-16">
       <FilterChips
         amenities={amenities}
         value={filters}

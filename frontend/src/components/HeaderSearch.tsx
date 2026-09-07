@@ -229,7 +229,7 @@ function HeaderSearchContent({
     } ${extra}`;
 
   return (
-    <div ref={barRef} className="relative mx-auto w-full max-w-[1000px]">
+    <div ref={barRef} className="relative mx-auto w-full max-w-[850px]">
       <div
         className={`flex flex-col divide-y divide-neutral-200 rounded-3xl border border-neutral-200 shadow-[0_3px_12px_rgba(0,0,0,0.1)] dark:divide-neutral-700 dark:border-neutral-700 sm:flex-row sm:items-center sm:divide-y-0 sm:rounded-full ${
           section ? "bg-neutral-100 dark:bg-neutral-900" : "bg-white dark:bg-neutral-900"

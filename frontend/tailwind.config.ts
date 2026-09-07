@@ -5,6 +5,11 @@ const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
+      screens: {
+        // A second card fits on a large phone; below this one card plus a peek
+        // is the affordance that the row scrolls.
+        xs: "480px",
+      },
       colors: {
         rausch: "#FF385C",
         rausch_dark: "#E31C5F",

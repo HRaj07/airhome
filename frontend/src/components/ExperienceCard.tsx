@@ -24,10 +24,12 @@ export default function ExperienceCard({ item, compact = false }: { item: Experi
   return (
     <Link
       href={href}
-      className={`group block ${compact ? "w-[168px] shrink-0 snap-start sm:w-[200px] lg:w-[232px]" : ""}`}
+      className={`group block ${compact
+          ? "w-[70%] shrink-0 snap-start xs:w-[47%] sm:w-[calc((100%_-_24px)/3)] md:w-[calc((100%_-_36px)/4)] lg:w-[calc((100%_-_48px)/5)] xl:w-[calc((100%_-_60px)/6)] min-[1440px]:w-[calc((100%_-_72px)/7)]"
+          : ""}`}
       title={item.title}
     >
-      <div className="relative aspect-[1/0.95] w-full overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-800">
+      <div className="relative aspect-[1/0.95] w-full overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
         {item.cover_photo_url ? (
           <Image
             src={item.cover_photo_url}
