@@ -109,18 +109,24 @@ export default function Navbar() {
             {/* Center: tabs when expanded, compact pill otherwise */}
             <div className="flex min-w-0 flex-1 justify-center">
               {expanded ? (
-                <nav className="hidden items-center gap-8 md:flex" aria-label="Browse categories">
-                  {TABS.map(({ key, label, icon: Icon, href }) => (
+                <nav className="hidden items-end gap-10 md:flex" aria-label="Browse categories">
+                  {TABS.map(({ key, label, emoji, href }) => (
                     <Link
                       key={key}
                       href={href}
-                      className={`flex items-center gap-2 border-b-2 pb-2 pt-3 text-[15px] transition-colors ${
+                      className={`group flex items-center gap-2 border-b-2 pb-2.5 pt-2 text-[15px] transition-colors ${
                         tab === key
                           ? "border-ink font-semibold text-ink dark:border-white dark:text-white"
-                          : "border-transparent text-hof hover:border-neutral-300 hover:text-ink dark:text-neutral-400 dark:hover:text-white"
+                          : "border-transparent text-[#6a6a6a] hover:text-ink dark:text-neutral-400 dark:hover:text-white"
                       }`}
                     >
-                      <Icon size={22} strokeWidth={tab === key ? 2.2 : 1.6} />
+                      <span
+                        aria-hidden="true"
+                        className={`text-[34px] leading-none transition-transform group-hover:scale-110 ${tab === key ? "scale-110" : ""}`}
+                        style={{ filter: tab === key ? "none" : "saturate(0.85)" }}
+                      >
+                        {emoji}
+                      </span>
                       {t(label)}
                     </Link>
                   ))}
