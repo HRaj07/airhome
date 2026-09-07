@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import DateRangeCalendar from "./DateRangeCalendar";
 import GuestSelector from "./GuestSelector";
@@ -8,7 +8,8 @@ import PriceBreakdown from "./PriceBreakdown";
 import { formatShort, nightsBetween, toISODate } from "@/lib/date";
 import { useToast } from "@/lib/toast-context";
 import { useLocale } from "@/lib/locale-context";
-import type { ListingDetail } from "@/lib/types";
+import { listingsApi } from "@/lib/api";
+import type { ListingDetail, StayQuote } from "@/lib/types";
 
 export default function BookingWidget({ listing }: { listing: ListingDetail }) {
   const router = useRouter();
@@ -20,11 +21,39 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
   const [datesOpen, setDatesOpen] = useState(false);
   const [guestsOpen, setGuestsOpen] = useState(false);
 
+  const [quote, setQuote] = useState<StayQuote | null>(null);
+  const [quoting, setQuoting] = useState(false);
+
   const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 0;
-  const subtotal = nights * listing.price_per_night;
-  const serviceFee = subtotal * listing.service_fee_pct;
-  const total = subtotal + (nights > 0 ? listing.cleaning_fee : 0) + serviceFee;
-  const canReserve = !!checkIn && !!checkOut && nights > 0;
+
+  // The stay is priced by the server, because the widget can't know about the
+  // weekend rate, the nights the host re-priced on their calendar or the
+  // length-of-stay discounts. Quoting here means the number on the button is
+  // the number that gets charged.
+  useEffect(() => {
+    if (!checkIn || !checkOut || nights <= 0) {
+      setQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setQuoting(true);
+    listingsApi
+      .quote(listing.id, toISODate(checkIn), toISODate(checkOut))
+      .then((q) => {
+        if (!cancelled) setQuote(q);
+      })
+      .catch(() => {
+        if (!cancelled) setQuote(null);
+      })
+      .finally(() => {
+        if (!cancelled) setQuoting(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [listing.id, checkIn, checkOut, nights]);
+
+  const canReserve = !!checkIn && !!checkOut && nights > 0 && (quote?.available ?? false);
 
   function handleReserve() {
     if (!canReserve || !checkIn || !checkOut) {
@@ -49,11 +78,13 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
       {/* Real Airbnb leads with the stay total, underlined, once dates are set;
           before that, the nightly rate and a nudge to add dates. */}
       <div className="mb-5">
-        {nights > 0 ? (
+        {nights > 0 && quote ? (
           <p className="text-[22px]">
-            <span className="font-semibold underline">{formatPrice(total)}</span>{" "}
+            <span className="font-semibold underline">{formatPrice(quote.total)}</span>{" "}
             <span className="text-base text-hof dark:text-neutral-400">{t("total")}</span>
           </p>
+        ) : nights > 0 && quoting ? (
+          <p className="text-[22px] text-hof dark:text-neutral-400">{t("Checking prices…")}</p>
         ) : (
           <>
             <p className="text-[22px]">
@@ -134,17 +165,13 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
         {canReserve ? t("Reserve") : t("Check availability")}
       </button>
       {canReserve && <p className="mt-3 text-center text-sm text-hof dark:text-neutral-400">{t("You won't be charged yet")}</p>}
+      {quote && !quote.available && (
+        <p className="mt-3 text-center text-sm text-rausch">{t(quote.unavailable_reason)}</p>
+      )}
 
-      {nights > 0 && (
+      {quote && (
         <div className="mt-6 border-t border-neutral-200 pt-4 dark:border-neutral-800">
-          <PriceBreakdown
-            nights={nights}
-            pricePerNight={listing.price_per_night}
-            cleaningFee={listing.cleaning_fee}
-            serviceFee={serviceFee}
-            subtotal={subtotal}
-            total={total}
-          />
+          <PriceBreakdown quote={quote} />
         </div>
       )}
     </div>

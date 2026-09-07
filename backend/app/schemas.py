@@ -145,9 +145,9 @@ class HostingFields(BaseModel):
     structure_type: str = "house"
     host_highlights: List[str] = []
     weekend_price: Optional[float] = None
-    new_listing_discount: float = 0.20
-    weekly_discount: float = 0.10
-    monthly_discount: float = 0.20
+    new_listing_discount: float = 0.0
+    weekly_discount: float = 0.0
+    monthly_discount: float = 0.0
     guest_visibility: str = "any"
     has_exterior_camera: bool = False
     has_noise_monitor: bool = False
@@ -281,6 +281,25 @@ class EarningsEstimate(BaseModel):
     nights: int
     total: float
     sample_size: int
+
+
+class StayQuote(BaseModel):
+    """What a specific stay costs, resolved server-side so the booking widget,
+    the checkout page and the booking endpoint can't disagree about the price."""
+    nights: int
+    #: One rate per night, in order — a weekend or re-priced night differs.
+    rates: List[float]
+    avg_nightly: float
+    nightly_subtotal: float
+    discount_label: str = ""
+    discount_rate: float = 0.0
+    discount_amount: float = 0.0
+    subtotal: float
+    cleaning_fee: float
+    service_fee: float
+    total: float
+    available: bool = True
+    unavailable_reason: str = ""
 
 
 class NearestDestination(BaseModel):

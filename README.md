@@ -2,8 +2,9 @@
 
 A fullstack clone of the Airbnb marketplace: browsing and searching listings, a detailed
 listing page with an availability calendar and reviews, a complete booking flow with a
-mocked checkout, and a host dashboard with full CRUD over listings. Built as a take-home
-fullstack assignment.
+mocked checkout, and the full hosting side — Airbnb's step-by-step "Become a host"
+listing wizard and its host-mode dashboard (Today, Calendar, Listings, Reservations,
+Earnings, Insights). Built as a take-home fullstack assignment.
 
 **Stack:** Next.js 14 (TypeScript, App Router) · FastAPI (Python) · SQLAlchemy · SQLite
 
@@ -63,10 +64,22 @@ fullstack assignment.
   immediately block those dates on the listing's calendar.
 - **My Trips** — a guest's upcoming and past stays *and* experience/service bookings,
   with the ability to cancel anything upcoming.
-- **Host dashboard (full CRUD)** — hosts can create, edit, and delete listings (title,
-  description, photos via URL, price, location with map coordinates, amenities), and see
-  a dashboard of their listings (bookings, revenue, rating) plus upcoming bookings across
-  all of their properties.
+- **Become a host** — Airbnb's listing wizard, one URL per step
+  (`/become-a-host/[id]/[step]`): place type, privacy type, location, floor plan,
+  amenities, photos, title, highlights and description, booking settings, first-guest
+  visibility, weekday and weekend price with the guest-price breakdown, discounts, safety
+  disclosures, a review screen and publish. The draft is created server-side on the first
+  click and every step saves to it, so closing the tab and coming back resumes exactly
+  where you left off. `/host/homes` is the signed-out landing page, with an earnings
+  estimate built from the nightly rates of comparable listings nearby.
+- **Host mode** (`/hosting`) — its own header, as on the real site:
+  **Today** (reservations bucketed into checking out / currently hosting / arriving soon /
+  upcoming / pending review), **Calendar** (per-night prices, block or open nights, set a
+  custom price for a date range, booked nights showing the guest), **Listings**
+  (list/unlist, continue a draft, edit, delete), **Reservations**, **Earnings** (monthly
+  paid-vs-upcoming chart, payouts with the host service fee itemised, transaction
+  history) and **Insights** (rating breakdown, Superhost progress, occupancy, per-listing
+  performance, recent reviews).
 - **Auth** — simplified email/password auth (JWT) that distinguishes guest vs. host
   accounts (a user can be a guest only, or a guest *and* a host).
 - **Wishlist** — heart icon on every listing card and detail page, with a dedicated
@@ -145,12 +158,18 @@ airbnb-clone/
 │   │   ├── cities.py        The ~509-city destination catalogue
 │   │   ├── seed_data.py     What the seed writes, as plain dicts (no DB imports)
 │   │   ├── pricing.py       Pure pricing/date-overlap math (unit tested, zero deps)
-│   │   ├── utils.py         Shared query helpers (booking overlap check)
+│   │   ├── migrate.py       Adds any model column the shipped database lacks, on start-up
+│   │   ├── photos.py        Photo pools: matches imagery to property type, topic and region
+│   │   ├── rows.py          Row-building helpers shared by the carousel endpoints
+│   │   ├── utils.py         Shared query helpers (booking overlap, stay quoting)
 │   │   ├── seed.py          Seeds the DB with demo hosts/guests/listings/bookings
-│   │   └── routers/         auth, listings, bookings, reviews, wishlist, amenities, host
-│   ├── tests/                 Standalone unit tests (no pytest/deps required)
-│   │   ├── test_pricing.py    Pricing + booking-overlap logic
-│   │   └── test_seed_data.py  The whole seed generation, without a database
+│   │   └── routers/         auth, listings, bookings, reviews, wishlist, amenities,
+│   │                         host, experiences, destinations, users
+│   ├── tests/                 Test suites (no pytest — plain asserts, one runner)
+│   │   ├── run_all.py         Runs all three
+│   │   ├── test_pricing.py    Stay quoting + booking-overlap logic (stdlib only)
+│   │   ├── test_seed_data.py  The whole seed generation, without a database
+│   │   └── test_api.py        The guest and hosting journeys through the real API
 │   └── requirements.txt
 ├── frontend/                 Next.js 14 (App Router) + TypeScript + Tailwind
 │   └── src/
@@ -252,9 +271,16 @@ calendar/availability table) in sync.
 | `/trips` | My Trips (guest) |
 | `/wishlist` | Saved listings |
 | `/login`, `/signup` | Auth (sign up can pre-select "become a host") |
-| `/host/dashboard` | Host overview: listings table (edit/delete), upcoming bookings |
-| `/host/listings/new` | Create a listing |
-| `/host/listings/[id]/edit` | Edit or delete a listing |
+| `/host/homes` | "Airbnb it" landing page: earnings estimate, AirCover comparison, FAQ |
+| `/become-a-host` | Hosting overview + "Get started" (creates the draft) |
+| `/become-a-host/[id]/[step]` | The listing wizard — one route per step, resumable |
+| `/hosting` | Host mode — Today: reservations by what's happening now |
+| `/hosting/calendar` | Per-night availability and pricing for one listing |
+| `/hosting/listings` | Every home, experience and service you host, with its status |
+| `/hosting/reservations` | All reservations, filtered by upcoming / completed / cancelled |
+| `/hosting/earnings` | Payouts by month, with the host service fee itemised |
+| `/hosting/insights` | Ratings, Superhost progress, occupancy, listing performance |
+| `/host/listings/[id]/edit` | Edit or delete a published listing |
 
 ## 6. API overview
 
@@ -269,10 +295,13 @@ Full endpoint-by-endpoint reference (request/response shapes) is in
 | Bookings | `POST /api/bookings`, `GET /api/bookings/mine`, `GET /api/bookings/listing/{id}` (host only), `DELETE /api/bookings/{id}` (cancel) |
 | Reviews | `GET/POST /api/listings/{id}/reviews` |
 | Wishlist | `GET /api/wishlist`, `POST/DELETE /api/wishlist/{listing_id}` |
-| Host | `GET /api/host/dashboard` |
+| Host | `GET /api/host/reservations`, `GET /api/host/earnings?year=`, `GET /api/host/insights`, `GET/PUT /api/host/calendar/{listing_id}`, `GET /api/host/estimate`, `GET /api/host/dashboard` |
+| Hosting wizard | `GET/POST /api/listings/drafts`, `PATCH /api/listings/{id}/draft` (save one step), `POST /api/listings/{id}/publish`, `PATCH /api/listings/{id}/status` (list / unlist) |
+| Pricing | `GET /api/listings/{id}/quote?check_in=&check_out=` — what a stay actually costs: weekend rate, per-night prices the host set on their calendar, and the best applicable stay discount |
 | Destinations | `GET /api/destinations?q=` (autocomplete from live inventory), `GET /api/destinations/nearest?lat=&lng=` (closest city with inventory, for "Nearby") |
 | Map | `GET /api/listings/map` (price pins for every match in the viewport; `/listings` accepts the same `sw_lat/sw_lng/ne_lat/ne_lng` bounds so the list follows the map) |
 | Users | `GET /api/users/{id}` (public profile: stats, reviews written, listings) |
+| Experiences & Services | `GET /api/experiences/featured?kind=`, `GET /api/experiences?kind=&location=&category=&date=&guests=`, `GET /api/experiences/categories?kind=`, `GET /api/experiences/{id}`, `POST /api/experiences/{id}/bookings`, `POST /api/experiences/{id}/reviews`, `GET /api/experiences/bookings/mine`, `DELETE /api/experiences/bookings/{id}` |
 
 **Performance note.** At this data size the naive shapes stop working, so the read paths
 were rewritten to keep query counts flat:
@@ -289,7 +318,6 @@ were rewritten to keep query counts flat:
   text match into the same query.
 - The columns all of this filters and groups on are indexed, including a composite
   `(listing_id, check_in, check_out)` index for the availability check.
-| Experiences & Services | `GET /api/experiences/featured?kind=`, `GET /api/experiences?kind=&location=&category=&date=&guests=`, `GET /api/experiences/categories?kind=`, `GET /api/experiences/{id}`, `POST /api/experiences/{id}/bookings`, `POST /api/experiences/{id}/reviews`, `GET /api/experiences/bookings/mine`, `DELETE /api/experiences/bookings/{id}` |
 
 Auth is a JWT bearer token (`Authorization: Bearer <token>`), issued at register/login.
 Interactive Swagger docs are auto-generated by FastAPI at `/docs` once the backend is
@@ -346,23 +374,33 @@ Visit `http://localhost:3000`.
 ### Running the unit tests
 
 ```bash
-# Backend — stdlib only, no database, no pytest
-cd backend && python3 tests/run_all.py
+# Backend — all three suites, through the project's venv
+cd backend && ./.venv/bin/python tests/run_all.py
 
 # Frontend — typecheck plus the pure date / geo / i18n suites
 cd frontend && npm test
 ```
 
-Both suites are dependency-free by design: the backend tests import only the
-standard library, and the frontend ones run straight through `tsx` with no test
-runner. Individual modules can still be run on their own:
+There is no pytest and no test runner: every suite is a plain script of
+assertions with one entry point. The pricing and seed suites import only the
+standard library, so `python3 tests/run_all.py` runs them anywhere; the API
+suite boots the real app against the seeded database and is skipped with a note
+when the dependencies aren't installed.
 
 ```bash
-cd backend   && python3 -m tests.test_pricing     # pricing + booking-overlap logic
-cd backend   && python3 -m tests.test_seed_data   # the catalogue and every seed row builder
-cd frontend  && npm run typecheck                 # tsc --noEmit over the whole app
-cd frontend  && npx tsx src/lib/date.test.ts      # calendar maths
+cd backend   && python3 -m tests.test_pricing      # stay quoting + booking-overlap logic
+cd backend   && python3 -m tests.test_seed_data    # the catalogue and every seed row builder
+cd backend   && ./.venv/bin/python -m tests.test_api   # the guest and hosting journeys, end to end
+cd frontend  && npm run typecheck                  # tsc --noEmit over the whole app
+cd frontend  && npx tsx src/lib/date.test.ts       # calendar maths
 ```
+
+`tests/test_api.py` is the one that walks the product: browse, search, filter,
+map, availability, quote, book, double-book, cancel, review, wishlist,
+experiences, then the whole hosting side — draft, every wizard step, publish,
+unlist, calendar blocking and re-pricing, earnings, insights, and the
+authorisation boundaries between guest and host. It cleans up everything it
+creates, so it can be run against the demo database repeatedly.
 
 ---
 

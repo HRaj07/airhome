@@ -24,6 +24,7 @@ import type {
   ListingFormData,
   PaginatedListings,
   Review,
+  StayQuote,
   User,
   MapPin,
   UserProfile,
@@ -139,6 +140,9 @@ export const listingsApi = {
     ),
   get: (id: number | string) => request<ListingDetail>(`/listings/${id}`),
   availability: (id: number | string) => request<{ blocked_dates: string[] }>(`/listings/${id}/availability`),
+  /** Price a stay: weekend rates, per-night host prices and stay discounts. */
+  quote: (id: number | string, checkIn: string, checkOut: string) =>
+    request<StayQuote>(`/listings/${id}/quote${toQueryString({ check_in: checkIn, check_out: checkOut })}`),
   mine: () => request<ListingCard[]>("/listings/mine"),
   create: (data: ListingFormData) => request<ListingDetail>("/listings", { method: "POST", body: JSON.stringify(data) }),
   update: (id: number | string, data: ListingFormData) =>

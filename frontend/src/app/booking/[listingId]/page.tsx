@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { CheckCircle2, CreditCard, Smartphone, Wallet } from "lucide-react";
@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
 import { useLocale } from "@/lib/locale-context";
 import { fromISODate, nightsBetween, formatShort } from "@/lib/date";
-import type { Booking, ListingDetail } from "@/lib/types";
+import type { Booking, ListingDetail, StayQuote } from "@/lib/types";
 
 type PaymentMethod = "card" | "upi" | "paypal" | "google_pay" | "apple_pay";
 
@@ -53,6 +53,7 @@ function BookingContent() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
+  const [quote, setQuote] = useState<StayQuote | null>(null);
   const [card, setCard] = useState({ number: "", expiry: "", cvc: "", name: "" });
   const [payMethod, setPayMethod] = useState<PaymentMethod>("card");
   const [upiId, setUpiId] = useState("");
@@ -77,13 +78,23 @@ function BookingContent() {
   const checkOut = checkOutISO ? fromISODate(checkOutISO) : null;
   const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 0;
 
-  const pricing = useMemo(() => {
-    if (!listing || nights <= 0) return null;
-    const subtotal = nights * listing.price_per_night;
-    const serviceFee = subtotal * listing.service_fee_pct;
-    const total = subtotal + listing.cleaning_fee + serviceFee;
-    return { subtotal, serviceFee, total };
-  }, [listing, nights]);
+  // The checkout shows the server's quote, not its own arithmetic — the same
+  // one the booking endpoint charges, weekend rates and discounts included.
+  useEffect(() => {
+    if (!listingId || !checkInISO || !checkOutISO || nights <= 0) return;
+    let cancelled = false;
+    listingsApi
+      .quote(listingId, checkInISO, checkOutISO)
+      .then((q) => {
+        if (!cancelled) setQuote(q);
+      })
+      .catch(() => {
+        if (!cancelled) setQuote(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [listingId, checkInISO, checkOutISO, nights]);
 
   const cardValid = card.number.replace(/\s/g, "").length >= 12 && card.expiry.length >= 4 && card.cvc.length >= 3 && card.name.trim().length > 1;
   const upiValid = UPI_ID_RE.test(upiId.trim());
@@ -303,15 +314,10 @@ function BookingContent() {
             </div>
             <div className="py-4">
               <h3 className="mb-3 font-semibold">{t("Price details")}</h3>
-              {pricing && (
-                <PriceBreakdown
-                  nights={nights}
-                  pricePerNight={listing.price_per_night}
-                  cleaningFee={listing.cleaning_fee}
-                  serviceFee={pricing.serviceFee}
-                  subtotal={pricing.subtotal}
-                  total={pricing.total}
-                />
+              {quote ? (
+                <PriceBreakdown quote={quote} />
+              ) : (
+                <p className="text-sm text-hof dark:text-neutral-400">{t("Checking prices…")}</p>
               )}
             </div>
             <button

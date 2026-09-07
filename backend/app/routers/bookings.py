@@ -8,8 +8,7 @@ from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_user
 from ..serializers import to_booking_out
-from ..utils import booking_overlaps
-from ..pricing import nights_between, compute_price
+from ..utils import booking_overlaps, calendar_overrides, quote_for_listing
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -30,24 +29,14 @@ def create_booking(payload: schemas.BookingCreate, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Listing not found")
     if booking_overlaps(payload.check_in, payload.check_out, listing.id, db):
         raise HTTPException(status_code=409, detail="Listing is not available for the selected dates")
-    # Nights the host blocked on the hosting calendar.
-    host_blocked = (
-        db.query(models.ListingCalendarDay.id)
-        .filter(
-            models.ListingCalendarDay.listing_id == listing.id,
-            models.ListingCalendarDay.blocked.is_(True),
-            models.ListingCalendarDay.date >= payload.check_in,
-            models.ListingCalendarDay.date < payload.check_out,
-        )
-        .first()
-    )
-    if host_blocked:
+    # Nights the host blocked on their calendar, and any they re-priced.
+    overrides, blocked = calendar_overrides(db, listing.id, payload.check_in, payload.check_out)
+    if blocked:
         raise HTTPException(status_code=409, detail="Listing is not available for the selected dates")
 
-    nights = nights_between(payload.check_in, payload.check_out)
-    subtotal, service_fee, total = compute_price(
-        nights, listing.price_per_night, listing.cleaning_fee, listing.service_fee_pct
-    )
+    # The guest is charged what they were quoted: weekend rates, per-night
+    # prices from the host's calendar and any stay discount all apply here.
+    quote = quote_for_listing(db, listing, payload.check_in, payload.check_out, overrides)
 
     booking = models.Booking(
         listing_id=listing.id,
@@ -55,10 +44,10 @@ def create_booking(payload: schemas.BookingCreate, db: Session = Depends(get_db)
         check_in=payload.check_in,
         check_out=payload.check_out,
         guests_count=payload.guests_count,
-        subtotal=subtotal,
-        cleaning_fee=listing.cleaning_fee,
-        service_fee=service_fee,
-        total_price=total,
+        subtotal=quote.subtotal,
+        cleaning_fee=quote.cleaning_fee,
+        service_fee=quote.service_fee,
+        total_price=quote.total,
         status=models.BookingStatus.confirmed,
     )
     db.add(booking)

@@ -91,6 +91,25 @@ export interface ListingDetail extends ListingCard, HostingFields {
   sleeping: SleepingArea[];
 }
 
+/** What a specific stay costs, priced by the server so the widget, the
+ *  checkout page and the booking endpoint always agree. */
+export interface StayQuote {
+  nights: number;
+  /** One rate per night, in order — a weekend or re-priced night differs. */
+  rates: number[];
+  avg_nightly: number;
+  nightly_subtotal: number;
+  discount_label: string;
+  discount_rate: number;
+  discount_amount: number;
+  subtotal: number;
+  cleaning_fee: number;
+  service_fee: number;
+  total: number;
+  available: boolean;
+  unavailable_reason: string;
+}
+
 export interface PaginatedListings {
   items: ListingCard[];
   total: number;

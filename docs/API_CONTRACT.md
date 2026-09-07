@@ -180,6 +180,36 @@ Listing detail also exposes the wizard fields: `structure_type`,
 Host-blocked nights appear in `blocked_dates` on the listing and are refused by
 `POST /bookings` with 409, like any overlap.
 
+### Pricing a stay
+
+`GET /listings/{id}/quote?check_in=&check_out=` returns what a specific stay
+costs, and is what both the booking widget and the checkout page display:
+
+```jsonc
+{
+  "nights": 3,
+  "rates": [120.0, 120.0, 80.0],   // one per night, in order
+  "avg_nightly": 106.67,
+  "nightly_subtotal": 320.0,
+  "discount_label": "Weekly stay discount",
+  "discount_rate": 0.1,
+  "discount_amount": 32.0,
+  "subtotal": 288.0,               // after the discount — fees are charged on this
+  "cleaning_fee": 30.0,
+  "service_fee": 34.56,
+  "total": 352.56,
+  "available": true,
+  "unavailable_reason": ""
+}
+```
+
+A night is priced by the most specific rule that applies: a price the host set
+on that date in their calendar, then the weekend rate (Friday and Saturday),
+then the listing's base rate. One discount applies, never two — the largest of
+the monthly (28+ nights), weekly (7+) and new-listing (first 3 bookings)
+candidates. `POST /bookings` prices the stay through the same function, so a
+guest is charged exactly what they were quoted.
+
 Schema changes are additive and applied on start-up (`app/migrate.py` adds
 missing columns to the shipped SQLite database); a new
 `listing_calendar_days` table holds calendar overrides.

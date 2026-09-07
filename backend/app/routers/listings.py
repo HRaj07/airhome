@@ -10,6 +10,7 @@ from ..database import get_db
 from ..rows import distinct_cards, group_candidates, rank_cities_by_distance
 from ..deps import get_current_user, get_current_user_optional, require_host
 from ..serializers import to_listing_card, to_listing_cards, to_listing_detail
+from ..utils import booking_overlaps, calendar_overrides, quote_for_listing
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
@@ -325,6 +326,10 @@ def create_draft(db: Session = Depends(get_db), host: models.User = Depends(requ
         bedrooms=1,
         beds=1,
         bathrooms=1.0,
+        # Airbnb pre-ticks all three on the discounts step; the host unticks.
+        new_listing_discount=0.20,
+        weekly_discount=0.10,
+        monthly_discount=0.20,
     )
     db.add(listing)
     db.commit()
@@ -453,6 +458,39 @@ def get_availability(listing_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Listing not found")
     detail = to_listing_detail(db, listing)
     return {"blocked_dates": detail.blocked_dates}
+
+
+@router.get("/{listing_id}/quote", response_model=schemas.StayQuote)
+def quote_stay_for_listing(
+    listing_id: int,
+    check_in: datetime.date,
+    check_out: datetime.date,
+    db: Session = Depends(get_db),
+):
+    """Price a stay before booking it.
+
+    The widget used to multiply the nightly rate itself, which quietly ignored
+    the weekend rate, the nights a host had re-priced on their calendar and the
+    length-of-stay discounts — so the guest was shown one number and charged
+    another. Both now read this.
+    """
+    listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    if not listing or (listing.status or "published") != "published":
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if check_out <= check_in:
+        raise HTTPException(status_code=400, detail="check_out must be after check_in")
+
+    overrides, blocked = calendar_overrides(db, listing.id, check_in, check_out)
+    quote = quote_for_listing(db, listing, check_in, check_out, overrides)
+    reason = ""
+    if check_in < datetime.date.today():
+        reason = "Those dates have passed"
+    elif blocked:
+        reason = "The host has blocked one of those nights"
+    elif booking_overlaps(check_in, check_out, listing.id, db):
+        reason = "Those dates are already booked"
+
+    return schemas.StayQuote(**quote._asdict(), available=not reason, unavailable_reason=reason)
 
 
 def _apply_listing_fields(listing: models.Listing, payload: schemas.ListingCreate, db: Session):

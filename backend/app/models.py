@@ -75,10 +75,13 @@ class Listing(Base):
     highlights = Column(String, default="")
     # Friday and Saturday nights; null means the weekday price applies.
     weekend_price = Column(Float, nullable=True)
-    # Airbnb's default discounts: 20% for the first 3 bookings, 10% weekly, 20% monthly.
-    new_listing_discount = Column(Float, default=0.20)
-    weekly_discount = Column(Float, default=0.10)
-    monthly_discount = Column(Float, default=0.20)
+    # Discounts are opt-in per listing, so the column default is "none" and an
+    # established listing never quietly takes 20% off. The wizard pre-ticks
+    # Airbnb's three (20% for the first 3 bookings, 10% weekly, 20% monthly) on
+    # the drafts it creates, which is where hosts actually choose.
+    new_listing_discount = Column(Float, default=0.0)
+    weekly_discount = Column(Float, default=0.0)
+    monthly_discount = Column(Float, default=0.0)
     # "Choose who to welcome for your first reservation": any | experienced
     guest_visibility = Column(String, default="any")
     # Safety details the host must disclose.
