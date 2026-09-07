@@ -1,0 +1,81 @@
+/**
+ * Standalone tests for the pure date helpers. No test runner or
+ * node_modules required — run with:  npx tsx src/lib/date.test.ts
+ * (or `tsx src/lib/date.test.ts` if tsx is installed globally).
+ */
+import {
+  toISODate,
+  fromISODate,
+  addDays,
+  isSameDay,
+  isBefore,
+  nightsBetween,
+  rangeHitsBlockedDate,
+  buildCalendarGrid,
+  formatDateRange,
+} from "./date";
+
+let failures: string[] = [];
+function check(label: string, condition: boolean) {
+  if (!condition) {
+    failures.push(label);
+    console.log(`FAIL: ${label}`);
+  } else {
+    console.log(`ok:   ${label}`);
+  }
+}
+
+// --- ISO round trip ---
+const d1 = fromISODate("2026-09-10");
+check("fromISODate parses year/month/day correctly", d1.getFullYear() === 2026 && d1.getMonth() === 8 && d1.getDate() === 10);
+check("toISODate round-trips", toISODate(fromISODate("2026-01-05")) === "2026-01-05");
+check("toISODate pads single-digit month/day", toISODate(new Date(2026, 0, 5)) === "2026-01-05");
+
+// --- addDays / isSameDay / isBefore ---
+check("addDays advances the date", isSameDay(addDays(fromISODate("2026-09-28"), 3), fromISODate("2026-10-01")));
+check("isBefore true for earlier date", isBefore(fromISODate("2026-09-01"), fromISODate("2026-09-02")));
+check("isBefore false for same date", isBefore(fromISODate("2026-09-01"), fromISODate("2026-09-01")) === false);
+
+// --- nightsBetween ---
+check("nightsBetween counts nights", nightsBetween(fromISODate("2026-09-10"), fromISODate("2026-09-13")) === 3);
+
+// --- rangeHitsBlockedDate ---
+const blocked = ["2026-09-12", "2026-09-13"];
+check(
+  "range overlapping a blocked date is detected",
+  rangeHitsBlockedDate(fromISODate("2026-09-11"), fromISODate("2026-09-14"), blocked) === true
+);
+check(
+  "range that only touches blocked date as checkout is allowed",
+  rangeHitsBlockedDate(fromISODate("2026-09-10"), fromISODate("2026-09-12"), blocked) === false
+);
+check(
+  "range entirely before blocked dates is allowed",
+  rangeHitsBlockedDate(fromISODate("2026-09-01"), fromISODate("2026-09-05"), blocked) === false
+);
+
+// --- buildCalendarGrid ---
+const grid = buildCalendarGrid(2026, 8, []); // September 2026 (month index 8)
+check("calendar grid always has 42 cells", grid.length === 42);
+const currentMonthDays = grid.filter((d) => d.inCurrentMonth);
+check("September 2026 has 30 in-month days", currentMonthDays.length === 30);
+check("first in-month day is Sep 1", isSameDay(currentMonthDays[0].date, fromISODate("2026-09-01")));
+
+const gridWithBlocked = buildCalendarGrid(2026, 8, ["2026-09-15"]);
+const sep15 = gridWithBlocked.find((d) => isSameDay(d.date, fromISODate("2026-09-15")));
+check("blocked date is flagged in the grid", !!sep15 && sep15.isBlocked === true);
+
+// --- formatDateRange ---
+check("formatDateRange with no dates", formatDateRange(null, null) === "Add dates");
+check(
+  "formatDateRange with both dates",
+  formatDateRange(fromISODate("2026-09-10"), fromISODate("2026-09-13")) === "Sep 10 - Sep 13"
+);
+
+console.log();
+if (failures.length > 0) {
+  console.log(`${failures.length} test(s) FAILED:`, failures);
+  process.exit(1);
+} else {
+  console.log("All date/calendar tests passed.");
+}

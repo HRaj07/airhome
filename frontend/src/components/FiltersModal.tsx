@@ -1,0 +1,153 @@
+"use client";
+
+import { useState } from "react";
+import { X, SlidersHorizontal } from "lucide-react";
+import type { Amenity, PropertyType } from "@/lib/types";
+import { PROPERTY_TYPE_LABELS } from "@/lib/types";
+import AmenityIcon from "./AmenityIcon";
+
+export interface FilterValue {
+  minPrice: string;
+  maxPrice: string;
+  propertyType: PropertyType | "";
+  amenityIds: number[];
+}
+
+export default function FiltersModal({
+  amenities,
+  value,
+  onApply,
+  onClose,
+}: {
+  amenities: Amenity[];
+  value: FilterValue;
+  onApply: (v: FilterValue) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState<FilterValue>(value);
+
+  function toggleAmenity(id: number) {
+    setDraft((d) => ({
+      ...d,
+      amenityIds: d.amenityIds.includes(id) ? d.amenityIds.filter((a) => a !== id) : [...d.amenityIds, id],
+    }));
+  }
+
+  function clearAll() {
+    setDraft({ minPrice: "", maxPrice: "", propertyType: "", amenityIds: [] });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[85vh] w-full max-w-lg animate-slide-up overflow-y-auto rounded-t-2xl bg-white dark:bg-neutral-900 sm:rounded-2xl"
+      >
+        <div className="sticky top-0 flex items-center justify-between border-b border-neutral-200 bg-white px-5 py-4 dark:border-neutral-700 dark:bg-neutral-900">
+          <button onClick={onClose} aria-label="Close filters">
+            <X size={20} />
+          </button>
+          <h2 className="font-semibold">Filters</h2>
+          <span className="w-5" />
+        </div>
+
+        <div className="space-y-6 px-5 py-6">
+          <section>
+            <h3 className="mb-3 font-semibold">Price range per night</h3>
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-hof">Minimum</label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="$0"
+                  value={draft.minPrice}
+                  onChange={(e) => setDraft({ ...draft, minPrice: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-800"
+                />
+              </div>
+              <span className="pt-5 text-hof">–</span>
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-hof">Maximum</label>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="$1000+"
+                  value={draft.maxPrice}
+                  onChange={(e) => setDraft({ ...draft, maxPrice: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-800"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-3 font-semibold">Type of place</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(PROPERTY_TYPE_LABELS) as PropertyType[]).map((pt) => (
+                <button
+                  key={pt}
+                  type="button"
+                  onClick={() => setDraft({ ...draft, propertyType: draft.propertyType === pt ? "" : pt })}
+                  className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
+                    draft.propertyType === pt
+                      ? "border-ink bg-neutral-100 dark:border-white dark:bg-neutral-800"
+                      : "border-neutral-300 hover:border-ink dark:border-neutral-600"
+                  }`}
+                >
+                  {PROPERTY_TYPE_LABELS[pt]}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h3 className="mb-3 font-semibold">Amenities</h3>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {amenities.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => toggleAmenity(a.id)}
+                  className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left text-sm transition-colors ${
+                    draft.amenityIds.includes(a.id)
+                      ? "border-ink bg-neutral-100 dark:border-white dark:bg-neutral-800"
+                      : "border-neutral-300 hover:border-ink dark:border-neutral-600"
+                  }`}
+                >
+                  <AmenityIcon icon={a.icon} size={20} />
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        <div className="sticky bottom-0 flex items-center justify-between border-t border-neutral-200 bg-white px-5 py-4 dark:border-neutral-700 dark:bg-neutral-900">
+          <button onClick={clearAll} className="text-sm font-semibold underline">
+            Clear all
+          </button>
+          <button
+            onClick={() => onApply(draft)}
+            className="rounded-lg bg-ink px-5 py-3 text-sm font-semibold text-white dark:bg-white dark:text-ink"
+          >
+            Show results
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function FiltersButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium hover:border-ink dark:border-neutral-600"
+    >
+      <SlidersHorizontal size={16} />
+      Filters
+      {active && <span className="h-2 w-2 rounded-full bg-rausch" />}
+    </button>
+  );
+}
