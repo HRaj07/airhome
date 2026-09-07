@@ -25,9 +25,8 @@ const HOST_TYPES: { id: HostType; label: string; emoji: string }[] = [
  * asking them to create a second account for an account they already had. The
  * guest → host upgrade now happens in place via PATCH /users/me.
  *
- * Only homes can actually be created — listing CRUD is the assignment's host
- * requirement — so experiences and services are honest "coming soon" choices
- * rather than dead ends that look broken.
+ * All three choices lead to a real, publishable flow: a home starts at the
+ * address step, an experience or service at its category chooser.
  */
 export default function HostTypeModal({ onClose }: { onClose: () => void }) {
   const [selected, setSelected] = useState<HostType | null>(null);
@@ -49,23 +48,24 @@ export default function HostTypeModal({ onClose }: { onClose: () => void }) {
     };
   }, [onClose]);
 
+  /** Where each choice starts, mirroring Airbnb's own routes. */
+  const START: Record<HostType, string> = {
+    home: "/become-a-host/address",
+    experience: "/setup/experiences/create",
+    service: "/setup/services/create",
+  };
+
   async function next() {
     if (!selected || submitting) return;
-
-    if (selected !== "home") {
-      showToast(t("Hosting an experience or service is coming soon"), "info");
-      return;
-    }
-
     setSubmitting(true);
     try {
-      // Already a host (e.g. reopened the modal) — skip straight to the form.
+      // Already a host (e.g. reopened the modal) — skip straight to the flow.
       if (!user?.is_host) {
         await usersApi.updateMe({ is_host: true });
         await refresh();
       }
       onClose();
-      router.push("/host/listings/new");
+      router.push(START[selected]);
     } catch {
       showToast(t("Couldn't start hosting just now — please try again"), "error");
       setSubmitting(false);

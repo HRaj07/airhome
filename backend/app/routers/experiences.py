@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, selectinload
 from .. import models, schemas
 from ..database import get_db
 from ..rows import distinct_cards, group_candidates, rank_cities_by_distance
-from ..deps import get_current_user
+from ..deps import get_current_user, require_host
 from ..serializers import (
     to_experience_cards,
     to_experience_detail,
@@ -278,6 +278,96 @@ def cancel_booking(booking_id: int, db: Session = Depends(get_db), user: models.
     if booking.guest_id != user.id:
         raise HTTPException(status_code=403, detail="Not your booking")
     booking.status = models.BookingStatus.cancelled
+    db.commit()
+    return schemas.OkResponse(ok=True)
+
+
+# ---------- Host CRUD ----------
+#
+# Declared above /{experience_id} so the literal path "mine" wins the match
+# instead of failing to parse as an integer id.
+
+
+def _owned_or_404(experience_id: int, db: Session, host: models.User) -> models.Experience:
+    exp = db.query(models.Experience).filter(models.Experience.id == experience_id).first()
+    if not exp:
+        raise HTTPException(status_code=404, detail="Not found")
+    if exp.host_id != host.id:
+        raise HTTPException(status_code=403, detail="Not your listing")
+    return exp
+
+
+def _apply(exp: models.Experience, payload: schemas.ExperienceCreate, db: Session) -> None:
+    """Copy the payload onto the row, replacing photos wholesale.
+
+    Photos are positional and the form always submits the full list, so the
+    simplest correct thing is to drop the old rows and re-add — trying to
+    diff them would only reshuffle positions.
+    """
+    data = payload.model_dump(exclude={"photo_urls"})
+    for field, value in data.items():
+        setattr(exp, field, value)
+
+    exp.photos.clear()
+    db.flush()
+    for i, url in enumerate(payload.photo_urls):
+        if url.strip():
+            exp.photos.append(models.ExperiencePhoto(url=url.strip(), position=i))
+
+
+@router.get("/mine", response_model=List[schemas.ExperienceCard])
+def my_experiences(
+    kind: Optional[models.ExperienceKind] = Query(None, description="Filter to one tab"),
+    db: Session = Depends(get_db),
+    host: models.User = Depends(require_host),
+):
+    """Everything this host offers, newest first."""
+    q = (
+        db.query(models.Experience)
+        .options(selectinload(models.Experience.photos))
+        .filter(models.Experience.host_id == host.id)
+    )
+    if kind is not None:
+        q = q.filter(models.Experience.kind == kind)
+    return to_experience_cards(db, q.order_by(models.Experience.id.desc()).all())
+
+
+@router.post("", response_model=schemas.ExperienceDetail, status_code=status.HTTP_201_CREATED)
+def create_experience(
+    payload: schemas.ExperienceCreate,
+    db: Session = Depends(get_db),
+    host: models.User = Depends(require_host),
+):
+    exp = models.Experience(host_id=host.id)
+    db.add(exp)
+    _apply(exp, payload, db)
+    db.commit()
+    db.refresh(exp)
+    return to_experience_detail(db, exp)
+
+
+@router.put("/{experience_id}", response_model=schemas.ExperienceDetail)
+def update_experience(
+    experience_id: int,
+    payload: schemas.ExperienceUpdate,
+    db: Session = Depends(get_db),
+    host: models.User = Depends(require_host),
+):
+    exp = _owned_or_404(experience_id, db, host)
+    _apply(exp, payload, db)
+    db.commit()
+    db.refresh(exp)
+    return to_experience_detail(db, exp)
+
+
+@router.delete("/{experience_id}", response_model=schemas.OkResponse)
+def delete_experience(
+    experience_id: int,
+    db: Session = Depends(get_db),
+    host: models.User = Depends(require_host),
+):
+    exp = _owned_or_404(experience_id, db, host)
+    db.delete(exp)
     db.commit()
     return schemas.OkResponse(ok=True)
 

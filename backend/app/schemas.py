@@ -307,6 +307,10 @@ class HostListingSummary(ListingCard):
 class HostDashboard(BaseModel):
     listings: List[HostListingSummary]
     upcoming_bookings: List[BookingOut]
+    #: Declared as forward refs: the experience schemas are defined further down
+    #: the file, after the listing ones. Resolved by model_rebuild() at the end.
+    experiences: List["HostExperienceSummary"] = []
+    services: List["HostExperienceSummary"] = []
 
 
 # ---------- Experiences & Services ----------
@@ -331,6 +335,38 @@ class ExperienceCard(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ExperienceCreate(BaseModel):
+    """What a host fills in to publish an experience or a service.
+
+    One payload for both: the two differ only in `kind` and in which fields
+    carry meaning — an experience runs at a fixed daily `start_time`, a service
+    is booked ad hoc and leaves it blank.
+    """
+    kind: ExperienceKind = ExperienceKind.experience
+    category: str = Field(min_length=1, max_length=80)
+    title: str = Field(min_length=1, max_length=140)
+    description: str = ""
+    city: str = Field(min_length=1, max_length=120)
+    country: str = ""
+    latitude: float = 0.0
+    longitude: float = 0.0
+    price_per_guest: float = Field(gt=0)
+    price_unit: str = "guest"
+    duration_minutes: int = Field(default=120, ge=15, le=1440)
+    start_time: str = ""
+    max_guests: int = Field(default=8, ge=1, le=50)
+    photo_urls: List[str] = []
+
+
+class ExperienceUpdate(ExperienceCreate):
+    pass
+
+
+class HostExperienceSummary(ExperienceCard):
+    booking_count: int = 0
+    revenue: float = 0.0
 
 
 class ExperienceAvailability(BaseModel):
@@ -411,3 +447,7 @@ class Destination(BaseModel):
 
 # UserProfile references ListingCard, which is defined further down.
 UserProfile.model_rebuild()
+
+
+# HostDashboard names experience schemas declared below it.
+HostDashboard.model_rebuild()

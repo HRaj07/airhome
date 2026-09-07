@@ -2,7 +2,9 @@ import type {
   Amenity,
   Booking,
   ExperienceBooking,
+  ExperienceCard,
   ExperienceDetail,
+  ExperienceFormData,
   ExperienceKind,
   ExperienceReview,
   ExperienceRow,
@@ -209,6 +211,14 @@ export const experiencesApi = {
   cancelBooking: (id: number) => request<{ ok: boolean }>(`/experiences/bookings/${id}`, { method: "DELETE" }),
   review: (id: number | string, data: { rating: number; comment: string }) =>
     request<ExperienceReview>(`/experiences/${id}/reviews`, { method: "POST", body: JSON.stringify(data) }),
+
+  // ---- Host CRUD ----
+  mine: (kind?: ExperienceKind) => request<ExperienceCard[]>(`/experiences/mine${toQueryString({ kind })}`),
+  create: (data: ExperienceFormData) =>
+    request<ExperienceDetail>("/experiences", { method: "POST", body: JSON.stringify(data) }),
+  update: (id: number | string, data: ExperienceFormData) =>
+    request<ExperienceDetail>(`/experiences/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  remove: (id: number | string) => request<{ ok: boolean }>(`/experiences/${id}`, { method: "DELETE" }),
 };
 
 export function setToken(token: string) {

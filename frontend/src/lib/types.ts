@@ -125,6 +125,8 @@ export interface HostListingSummary extends ListingCard {
 export interface HostDashboard {
   listings: HostListingSummary[];
   upcoming_bookings: Booking[];
+  experiences: HostExperienceSummary[];
+  services: HostExperienceSummary[];
 }
 
 export interface ListingFormData {
@@ -188,6 +190,29 @@ export interface ExperienceCard {
   cover_photo_url: string;
   rating_avg: number;
   review_count: number;
+}
+
+export interface HostExperienceSummary extends ExperienceCard {
+  booking_count: number;
+  revenue: number;
+}
+
+/** What the host form submits to create or update an experience or a service. */
+export interface ExperienceFormData {
+  kind: ExperienceKind;
+  category: string;
+  title: string;
+  description: string;
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  price_per_guest: number;
+  price_unit: string;
+  duration_minutes: number;
+  start_time: string;
+  max_guests: number;
+  photo_urls: string[];
 }
 
 export interface ExperienceAvailability {
