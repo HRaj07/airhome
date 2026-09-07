@@ -84,6 +84,44 @@ PROPERTY_TYPES = (
     + [PropertyType.shared_room]
 )
 
+#: Local price levels, as a multiple of the catalogue's baseline nightly rate.
+#: The baseline (45-420 USD) is a Western-market range, and browsing from India
+#: it read as broken: an entire flat in Delhi goes for roughly Rs 3,000-8,000 a
+#: night, not the Rs 20,000 a flat rate produced. Countries absent from this map
+#: keep the baseline. Add a country here to bring its market into line.
+COUNTRY_PRICE_FACTOR = {
+    "India": 0.30,
+}
+
+#: What guests pay for less of the property. A shared dorm bed drawn from the
+#: same range as an entire villa was the other half of the problem: it put a
+#: "Room in Connaught Place" above every whole house around it.
+PROPERTY_TYPE_PRICE_FACTOR = {
+    PropertyType.entire_home: 1.0,
+    PropertyType.hotel_room: 0.72,
+    PropertyType.private_room: 0.5,
+    PropertyType.shared_room: 0.28,
+}
+
+#: Floors, in USD, so the factors can never multiply down to a silly number.
+MIN_NIGHTLY_PRICE = 6.0
+MIN_EXPERIENCE_PRICE = 5.0
+
+
+def nightly_price(base: float, country: str, ptype: PropertyType) -> float:
+    """The baseline draw adjusted for where the listing is and how much of the
+    place the guest gets. Deterministic — it draws no randomness of its own, so
+    re-seeding reproduces the same photos, titles and bookings as before with
+    only the prices moved."""
+    adjusted = base * COUNTRY_PRICE_FACTOR.get(country, 1.0) * PROPERTY_TYPE_PRICE_FACTOR[ptype]
+    return max(MIN_NIGHTLY_PRICE, float(round(adjusted, 0)))
+
+
+def guest_price(base: float, country: str) -> float:
+    """The same local adjustment for an experience or service, which has no
+    property type to scale by."""
+    return max(MIN_EXPERIENCE_PRICE, float(round(base * COUNTRY_PRICE_FACTOR.get(country, 1.0), 0)))
+
 TITLE_TEMPLATES = [
     "Sunny {type} in the heart of {city}",
     "Cozy {type} with skyline views",
@@ -393,7 +431,7 @@ def build_listings(host_ids: Sequence[int], cities: Iterable[City] = ALL_CITIES)
         for n in range(count):
             ptype = random.choice(PROPERTY_TYPES)
             bedrooms = random.randint(1, 4)
-            price = float(round(random.uniform(45, 420), 0))
+            price = nightly_price(random.uniform(45, 420), city.country, ptype)
             rows.append({
                 "host_id": random.choice(host_ids),
                 "title": random.choice(TITLE_TEMPLATES).format(type=TYPE_LABEL[ptype], city=city.name),
@@ -544,7 +582,7 @@ def build_experiences(host_ids: Sequence[int], cities: Iterable[City] = ALL_CITI
                 "description": EXPERIENCE_DESCRIPTION, "city": city.name, "country": city.country,
                 "latitude": city.latitude + random.uniform(-0.03, 0.03),
                 "longitude": city.longitude + random.uniform(-0.03, 0.03),
-                "price_per_guest": float(price), "price_unit": "guest",
+                "price_per_guest": guest_price(price, city.country), "price_unit": "guest",
                 "duration_minutes": duration, "start_time": start_time,
                 "max_guests": random.choice([6, 8, 10, 12]),
             })
@@ -558,7 +596,7 @@ def build_experiences(host_ids: Sequence[int], cities: Iterable[City] = ALL_CITI
                 "description": SERVICE_DESCRIPTION, "city": city.name, "country": city.country,
                 "latitude": city.latitude + random.uniform(-0.03, 0.03),
                 "longitude": city.longitude + random.uniform(-0.03, 0.03),
-                "price_per_guest": float(price), "price_unit": unit,
+                "price_per_guest": guest_price(price, city.country), "price_unit": unit,
                 "duration_minutes": duration, "start_time": "",
                 "max_guests": random.choice([1, 2, 4, 6]) if unit == "guest" else random.choice([2, 4]),
             })

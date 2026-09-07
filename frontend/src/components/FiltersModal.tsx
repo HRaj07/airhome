@@ -4,9 +4,11 @@ import { useState } from "react";
 import { X, SlidersHorizontal } from "lucide-react";
 import type { Amenity, PropertyType } from "@/lib/types";
 import { PROPERTY_TYPE_LABELS } from "@/lib/types";
+import { useLocale } from "@/lib/locale-context";
 import AmenityIcon from "./AmenityIcon";
 
 export interface FilterValue {
+  /** In USD, like every stored price — the inputs take the viewer's currency. */
   minPrice: string;
   maxPrice: string;
   propertyType: PropertyType | "";
@@ -37,7 +39,16 @@ export default function FiltersModal({
   onApply: (v: FilterValue) => void;
   onClose: () => void;
 }) {
+  const { currency } = useLocale();
+  const rate = currency.rate || 1;
   const [draft, setDraft] = useState<FilterValue>(value);
+  // Prices are stored in USD but shown in the viewer's currency everywhere else,
+  // so a guest browsing in rupees who typed "5000" here was silently asking for
+  // $5,000 a night and getting nothing back. The inputs hold whole units of the
+  // selected currency and convert once, on Apply.
+  const toLocal = (usd: string) => (usd ? String(Math.round(Number(usd) * rate)) : "");
+  const [price, setPrice] = useState({ min: toLocal(value.minPrice), max: toLocal(value.maxPrice) });
+  const toUsd = (local: string) => (local ? (Number(local) / rate).toFixed(2) : "");
 
   function toggleAmenity(id: number) {
     setDraft((d) => ({
@@ -48,6 +59,7 @@ export default function FiltersModal({
 
   function clearAll() {
     setDraft(EMPTY_FILTERS);
+    setPrice({ min: "", max: "" });
   }
 
   return (
@@ -73,9 +85,9 @@ export default function FiltersModal({
                 <input
                   type="number"
                   min={0}
-                  placeholder="$0"
-                  value={draft.minPrice}
-                  onChange={(e) => setDraft({ ...draft, minPrice: e.target.value })}
+                  placeholder={`${currency.symbol}0`}
+                  value={price.min}
+                  onChange={(e) => setPrice({ ...price, min: e.target.value })}
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-800"
                 />
               </div>
@@ -85,9 +97,9 @@ export default function FiltersModal({
                 <input
                   type="number"
                   min={0}
-                  placeholder="$1000+"
-                  value={draft.maxPrice}
-                  onChange={(e) => setDraft({ ...draft, maxPrice: e.target.value })}
+                  placeholder={`${currency.symbol}${Math.round(1000 * rate).toLocaleString()}+`}
+                  value={price.max}
+                  onChange={(e) => setPrice({ ...price, max: e.target.value })}
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-800"
                 />
               </div>
@@ -141,7 +153,7 @@ export default function FiltersModal({
             Clear all
           </button>
           <button
-            onClick={() => onApply(draft)}
+            onClick={() => onApply({ ...draft, minPrice: toUsd(price.min), maxPrice: toUsd(price.max) })}
             className="rounded-lg bg-ink px-5 py-3 text-sm font-semibold text-white dark:bg-white dark:text-ink"
           >
             Show results

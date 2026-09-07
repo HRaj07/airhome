@@ -87,6 +87,37 @@ check(f"{len(listing_rows)} listings generated (>= 4000)", len(listing_rows) >= 
 check("every listing has a host from the pool", all(r["host_id"] in host_ids for r in listing_rows))
 check("property types are real enum members", all(isinstance(r["property_type"], PropertyType) for r in listing_rows))
 check("prices are positive", all(r["price_per_night"] > 0 for r in listing_rows))
+check("no listing is priced below the floor",
+      all(r["price_per_night"] >= sd.MIN_NIGHTLY_PRICE for r in listing_rows))
+
+# Local price levels. An Indian entire home used to be drawn from the same
+# 45-420 USD range as a Manhattan loft, which browsing from India read as
+# broken; and a shared dorm bed from the same range as a whole villa, which put
+# rooms above the houses around them. Both are checked against the market they
+# sit in rather than against a fixed number, so retuning the factors doesn't
+# mean retuning the test.
+def avg_price(rows):
+    return sum(r["price_per_night"] for r in rows) / max(1, len(rows))
+
+
+def by_country_type(country, ptype):
+    return [r for r in listing_rows if r["country"] == country and r["property_type"] is ptype]
+
+
+in_homes = by_country_type("India", PropertyType.entire_home)
+us_homes = by_country_type("United States", PropertyType.entire_home)
+check("Indian homes are priced for the Indian market, not the Western one",
+      len(in_homes) > 100 and avg_price(in_homes) < avg_price(us_homes) * 0.5)
+check("countries without a price factor are untouched",
+      abs(avg_price(us_homes) - 232.5) < 20)
+for _country in ("India", "United States"):
+    _homes = avg_price(by_country_type(_country, PropertyType.entire_home))
+    check(f"a private room in {_country} costs less than a whole home",
+          avg_price(by_country_type(_country, PropertyType.private_room)) < _homes)
+    check(f"a shared room in {_country} is the cheapest thing on offer",
+          avg_price(by_country_type(_country, PropertyType.shared_room))
+          < avg_price(by_country_type(_country, PropertyType.private_room)))
+
 check("guest capacity is at least 1", all(r["max_guests"] >= 1 for r in listing_rows))
 check("beds are at least 1", all(r["beds"] >= 1 for r in listing_rows))
 check("no listing is missing a neighbourhood", all(r["neighborhood"] for r in listing_rows))
@@ -253,6 +284,13 @@ check("every city has an experience or service",
       len({r["city"] for r in exp_rows}) == len({c.name for c in ALL_CITIES}))
 check("titles have no unfilled placeholders", not any("{" in r["title"] for r in exp_rows))
 check("price units are valid", all(r["price_unit"] in ("guest", "group") for r in exp_rows))
+check("Indian experiences carry Indian prices",
+      (sum(r["price_per_guest"] for r in exp_rows if r["country"] == "India")
+       / max(1, len([r for r in exp_rows if r["country"] == "India"])))
+      < (sum(r["price_per_guest"] for r in exp_rows if r["country"] == "United States")
+         / max(1, len([r for r in exp_rows if r["country"] == "United States"]))) * 0.5)
+check("no experience is priced below the floor",
+      all(r["price_per_guest"] >= sd.MIN_EXPERIENCE_PRICE for r in exp_rows))
 check("experiences have a start time",
       all(r["start_time"] for r in exp_rows if r["kind"] is ExperienceKind.experience))
 check("capacity is at least 1", all(r["max_guests"] >= 1 for r in exp_rows))
