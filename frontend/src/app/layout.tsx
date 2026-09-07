@@ -8,8 +8,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "airhome — Find your next stay",
-  description: "An Airbnb-style marketplace for booking unique stays around the world.",
+  title: "airhome | Holiday rentals, cabins, beach houses & more",
+  description: "An Airbnb-style marketplace for booking unique stays, experiences and services around the world.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

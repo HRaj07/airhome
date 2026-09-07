@@ -168,7 +168,7 @@ export default function HeaderSearch({
 
   // ---------- expanded bar ----------
   const sectionBtn = (key: Section, extra = "") =>
-    `relative flex-1 rounded-full px-7 py-3.5 text-left transition-colors ${
+    `relative flex-1 rounded-full px-8 py-3.5 text-left transition-colors ${
       section === key
         ? "bg-white shadow-popover dark:bg-neutral-800"
         : section
@@ -177,33 +177,33 @@ export default function HeaderSearch({
     } ${extra}`;
 
   return (
-    <div ref={barRef} className="relative mx-auto w-full max-w-4xl">
+    <div ref={barRef} className="relative mx-auto w-full max-w-[1150px]">
       <div
-        className={`flex flex-col divide-y divide-neutral-200 rounded-3xl border border-neutral-200 shadow-md dark:divide-neutral-700 dark:border-neutral-700 sm:flex-row sm:items-center sm:divide-y-0 sm:rounded-full ${
+        className={`flex flex-col divide-y divide-neutral-200 rounded-3xl border border-neutral-200 shadow-[0_3px_12px_rgba(0,0,0,0.1)] dark:divide-neutral-700 dark:border-neutral-700 sm:flex-row sm:items-center sm:divide-y-0 sm:rounded-full ${
           section ? "bg-neutral-100 dark:bg-neutral-900" : "bg-white dark:bg-neutral-900"
         }`}
       >
         <button type="button" onClick={() => setSection(section === "where" ? null : "where")} className={sectionBtn("where")}>
-          <span className="block text-xs font-semibold">{t("Where")}</span>
+          <span className="block text-[13px] font-semibold">{t("Where")}</span>
           <span className={`block truncate text-sm ${location ? "text-ink dark:text-white" : "text-hof dark:text-neutral-400"}`}>
             {location || t(cfg.wherePlaceholder)}
           </span>
         </button>
 
-        <span className="hidden h-8 w-px bg-neutral-300 dark:bg-neutral-700 sm:block" />
+        <span className="hidden h-8 w-px bg-neutral-200 dark:bg-neutral-700 sm:block" />
 
         <button type="button" onClick={() => setSection(section === "when" ? null : "when")} className={sectionBtn("when")}>
-          <span className="block text-xs font-semibold">{t("When")}</span>
+          <span className="block text-[13px] font-semibold">{t("When")}</span>
           <span className={`block truncate text-sm ${whenLabel ? "text-ink dark:text-white" : "text-hof dark:text-neutral-400"}`}>
             {whenLabel || t("Add dates")}
           </span>
         </button>
 
-        <span className="hidden h-8 w-px bg-neutral-300 dark:bg-neutral-700 sm:block" />
+        <span className="hidden h-8 w-px bg-neutral-200 dark:bg-neutral-700 sm:block" />
 
         <div className={sectionBtn("who", "flex items-center justify-between gap-3 py-2 pr-2")}>
           <button type="button" onClick={() => setSection(section === "who" ? null : "who")} className="min-w-0 flex-1 text-left">
-            <span className="block text-xs font-semibold">{thirdTitle}</span>
+            <span className="block text-[13px] font-semibold">{thirdTitle}</span>
             <span className={`block truncate text-sm ${thirdLabel ? "text-ink dark:text-white" : "text-hof dark:text-neutral-400"}`}>
               {thirdLabel || thirdPlaceholder}
             </span>

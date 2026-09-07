@@ -3,19 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import {
-  Menu,
-  Globe,
-  HelpCircle,
-  Home as HomeIcon,
-  PartyPopper,
-  ConciergeBell,
-  Sun,
-  Moon,
-  UserPlus,
-  Users,
-  LucideIcon,
-} from "lucide-react";
+import { Menu, Globe, HelpCircle, Home as HomeIcon, Sun, Moon, UserPlus, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useToast } from "@/lib/toast-context";
@@ -25,11 +13,12 @@ import { useLocale } from "@/lib/locale-context";
 
 type Tab = "all" | "homes" | "experiences" | "services";
 
-const TABS: { key: Tab; label: string; icon: LucideIcon; href: string }[] = [
-  { key: "all", label: "All", icon: Globe, href: "/" },
-  { key: "homes", label: "Homes", icon: HomeIcon, href: "/homes" },
-  { key: "experiences", label: "Experiences", icon: PartyPopper, href: "/experiences" },
-  { key: "services", label: "Services", icon: ConciergeBell, href: "/services" },
+/** Colourful illustrated tab icons (emoji render as full-colour glyphs on every platform). */
+const TABS: { key: Tab; label: string; emoji: string; href: string }[] = [
+  { key: "all", label: "All", emoji: "🌍", href: "/" },
+  { key: "homes", label: "Homes", emoji: "🏠", href: "/homes" },
+  { key: "experiences", label: "Experiences", emoji: "🎈", href: "/experiences" },
+  { key: "services", label: "Services", emoji: "🛎️", href: "/services" },
 ];
 
 /** Which tab is active, and which search mode the header uses, for a pathname. */
@@ -100,11 +89,15 @@ export default function Navbar() {
   const hostLabel = user?.is_host ? t("Switch to hosting") : t("Become a host");
 
   const menuItem =
-    "flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800";
+    "flex w-full items-center gap-3 px-5 py-3.5 text-left text-[15px] hover:bg-neutral-100 dark:hover:bg-neutral-800";
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+      <header
+        className={`sticky top-0 z-40 border-b border-neutral-200 dark:border-neutral-800 dark:bg-neutral-950 ${
+          expanded && !overlay ? "bg-[#f7f7f7]" : "bg-white"
+        }`}
+      >
         <div className="relative mx-auto max-w-[1760px] px-4 sm:px-6 lg:px-10">
           <div className="flex h-20 items-center justify-between gap-3">
             {/* Logo */}
@@ -141,12 +134,15 @@ export default function Navbar() {
 
             {/* Right actions */}
             <div className="flex shrink-0 items-center gap-1">
-              <Link
-                href={hostHref}
-                className="hidden rounded-full px-4 py-2.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:block"
-              >
-                {hostLabel}
-              </Link>
+              {user ? (
+                <Link href={hostHref} className="hidden rounded-full px-4 py-2.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:block">
+                  {hostLabel}
+                </Link>
+              ) : (
+                <Link href="/login" className="hidden rounded-full px-4 py-2.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:block">
+                  {t("Log in or sign up")}
+                </Link>
+              )}
               <button
                 onClick={() => setLocaleOpen(true)}
                 aria-label="Choose a language and currency"
@@ -166,7 +162,7 @@ export default function Navbar() {
                 </button>
 
                 {menuOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-neutral-200 bg-white py-2 shadow-popover dark:border-neutral-700 dark:bg-neutral-900">
+                  <div className="absolute right-0 top-full z-50 mt-3 w-[360px] overflow-hidden rounded-2xl bg-white py-2 shadow-popover dark:bg-neutral-900">
                     {loading ? (
                       <p className="px-4 py-3 text-sm text-hof">Loading...</p>
                     ) : (
@@ -206,9 +202,7 @@ export default function Navbar() {
                                 {user?.is_host ? t("Manage your listings and bookings.") : t("It's easy to start hosting and earn extra income.")}
                               </p>
                             </div>
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rausch/10 text-rausch">
-                              <HomeIcon size={20} />
-                            </span>
+                            <span aria-hidden="true" className="text-4xl leading-none">🧑‍💼</span>
                           </Link>
                         </div>
 
@@ -219,10 +213,6 @@ export default function Navbar() {
                           <Link href="/co-host" onClick={() => setMenuOpen(false)} className={menuItem}>
                             <Users size={20} strokeWidth={1.6} /> {t("Find a co-host")}
                           </Link>
-                          <button onClick={toggleTheme} className={menuItem}>
-                            {theme === "dark" ? <Sun size={20} strokeWidth={1.6} /> : <Moon size={20} strokeWidth={1.6} />}
-                            {theme === "dark" ? t("Light mode") : t("Dark mode")}
-                          </button>
                         </div>
 
                         <div className="border-t border-neutral-200 dark:border-neutral-800">
@@ -235,6 +225,13 @@ export default function Navbar() {
                               {t("Log in or sign up")}
                             </Link>
                           )}
+                        </div>
+
+                        <div className="border-t border-neutral-200 dark:border-neutral-800">
+                          <button onClick={toggleTheme} className={menuItem}>
+                            {theme === "dark" ? <Sun size={20} strokeWidth={1.6} /> : <Moon size={20} strokeWidth={1.6} />}
+                            {theme === "dark" ? t("Light mode") : t("Dark mode")}
+                          </button>
                         </div>
                       </>
                     )}
