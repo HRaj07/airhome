@@ -21,6 +21,7 @@ export interface Amenity {
 export interface ListingCard {
   id: number;
   title: string;
+  neighborhood: string;
   city: string;
   state: string;
   country: string;
@@ -61,6 +62,12 @@ export interface PaginatedListings {
   page: number;
   limit: number;
   has_more: boolean;
+}
+
+export interface FeaturedRow {
+  title: string;
+  city: string;
+  items: ListingCard[];
 }
 
 export interface BookingListingSummary {
@@ -117,6 +124,7 @@ export interface ListingFormData {
   cleaning_fee: number;
   service_fee_pct: number;
   address: string;
+  neighborhood: string;
   city: string;
   state: string;
   country: string;
@@ -129,6 +137,14 @@ export interface ListingFormData {
 export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
   entire_home: "Entire home",
   private_room: "Private room",
+  shared_room: "Shared room",
+  hotel_room: "Hotel room",
+};
+
+/** Short label used in card titles, e.g. "Home in Montmartre". */
+export const PROPERTY_TYPE_SHORT: Record<PropertyType, string> = {
+  entire_home: "Home",
+  private_room: "Room",
   shared_room: "Shared room",
   hotel_room: "Hotel room",
 };

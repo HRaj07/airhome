@@ -12,10 +12,14 @@ fullstack assignment.
 ## 1. What's implemented
 
 ### Core features
-- **Home / explore page** — grid of listing cards (photo, title, location, price, rating),
-  a pill-shaped search bar (location + date range + guest count), a category row (entire
-  home / private room / shared room / hotel room), a filters modal (price range, property
-  type, amenities), and infinite scroll.
+- **Home / explore page** — mirrors the current Airbnb homepage: a compact
+  `Anywhere | Anytime | Add guests` pill in the header that expands into the large
+  Where / When / Who search bar (with All / Homes / Experiences / Services tabs), followed by
+  horizontal carousel rows grouped by city ("Popular homes in Paris", "Available in Tokyo
+  this weekend", ...). Cards show a "Guest favourite" badge, "Home in Montmartre"-style
+  titles and "₹9,360 for 2 nights · ★4.9" pricing. Searching (or applying a filter) switches
+  to an infinite-scroll results grid with a filters modal (price range, property type,
+  amenities).
 - **Listing detail page** — photo gallery with a full-screen lightbox, description,
   amenities, host info card (with Superhost badge), an embedded map, an availability
   calendar that blocks already-booked dates, a price breakdown, and a reviews section.
@@ -35,10 +39,15 @@ fullstack assignment.
   Wishlist page.
 - **Reviews** — a guest can leave a star rating + comment after a completed stay; the API
   enforces this server-side (you can't review a place you haven't stayed at).
-- **Toasts / notifications**, **dark mode toggle**, and a **fully responsive** layout
-  (mobile, tablet, desktop).
-- **Seed data** — 5 hosts, 4 guests, ~15-18 listings across 12 cities worldwide (each with
-  4-6 photos and 5-10 amenities), a mix of completed (reviewed) and upcoming bookings.
+- **Language & currency modal** (globe icon in the header) — pick a display currency
+  (USD, INR, EUR, GBP, JPY, ...); every price on the site re-renders in it. Prices are
+  stored in USD and converted with a fixed demo rate table. Language selection is stored
+  but interface translation is a placeholder.
+- **Toasts / notifications**, **dark mode toggle** (in the hamburger menu), and a **fully
+  responsive** layout (mobile, tablet, desktop).
+- **Seed data** — 5 hosts, 4 guests, 48 listings across 8 cities (6 neighbourhoods per
+  city, each with 4-6 photos and 5-10 amenities), a mix of completed (reviewed) and
+  upcoming bookings.
 
 ### Mocked / placeholder, as scoped by the assignment
 - **Payments** — the checkout screen collects mock card details and never contacts a real
@@ -130,7 +139,7 @@ SQLite, managed by SQLAlchemy (`backend/app/models.py`). Tables:
 | Table | Purpose | Key columns |
 |---|---|---|
 | `users` | Guests and hosts (one table; `is_host` flag, so an account can be both) | `email` (unique), `hashed_password`, `is_host`, `is_superhost`, `bio` |
-| `listings` | A bookable property | `host_id` → `users.id`, `property_type`, `price_per_night`, `cleaning_fee`, `service_fee_pct`, `city`/`state`/`country`, `latitude`/`longitude` |
+| `listings` | A bookable property | `host_id` → `users.id`, `property_type`, `price_per_night`, `cleaning_fee`, `service_fee_pct`, `neighborhood`/`city`/`state`/`country`, `latitude`/`longitude` |
 | `listing_photos` | Ordered photos for a listing | `listing_id` → `listings.id`, `url`, `position` |
 | `amenities` | Amenity catalog (Wifi, Kitchen, Pool, ...) | `name`, `icon` |
 | `listing_amenities` | Many-to-many join table | `listing_id`, `amenity_id` |
@@ -155,7 +164,7 @@ calendar/availability table) in sync.
 
 | Route | Description |
 |---|---|
-| `/` | Home / explore: search, category filters, filters modal, infinite-scroll grid |
+| `/` | Home: city carousel rows; with search params (`?location=&check_in=&check_out=&guests=`) an infinite-scroll results grid + filters modal |
 | `/listing/[id]` | Listing detail: gallery, amenities, host, map, calendar, reviews |
 | `/booking/[listingId]?check_in=&check_out=&guests=` | Booking summary + mocked checkout |
 | `/trips` | My Trips (guest) |
@@ -174,7 +183,7 @@ Full endpoint-by-endpoint reference (request/response shapes) is in
 |---|---|
 | Auth | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me` |
 | Amenities | `GET /api/amenities` |
-| Listings | `GET /api/listings` (search/filter/paginate), `GET /api/listings/{id}`, `POST/PUT/DELETE /api/listings/{id}` (host only), `GET /api/listings/mine`, `GET /api/listings/{id}/availability` |
+| Listings | `GET /api/listings` (search/filter/paginate), `GET /api/listings/featured` (homepage carousel rows grouped by city), `GET /api/listings/{id}`, `POST/PUT/DELETE /api/listings/{id}` (host only), `GET /api/listings/mine`, `GET /api/listings/{id}/availability` |
 | Bookings | `POST /api/bookings`, `GET /api/bookings/mine`, `GET /api/bookings/listing/{id}` (host only), `DELETE /api/bookings/{id}` (cancel) |
 | Reviews | `GET/POST /api/listings/{id}/reviews` |
 | Wishlist | `GET /api/wishlist`, `POST/DELETE /api/wishlist/{listing_id}` |
@@ -320,3 +329,7 @@ git push -u origin main
 - Auth is intentionally simple (JWT, 1-week expiry, no email verification/password
   reset) since the assignment explicitly allows "real user authentication can be
   simplified or mocked."
+- The header reproduces Airbnb's layout and interaction (compact pill → expanded bar,
+  tabs, globe modal, hamburger menu) but uses an original "airhome" wordmark and icon
+  rather than Airbnb's trademarked logo. Experiences / Services tabs, Help Centre, Refer a
+  host and Find a co-host are "coming soon" placeholders.

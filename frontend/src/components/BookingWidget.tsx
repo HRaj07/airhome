@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import DateRangeCalendar from "./DateRangeCalendar";
 import GuestSelector from "./GuestSelector";
 import StarRating from "./StarRating";
-import { formatDateRange, nightsBetween, toISODate } from "@/lib/date";
+import PriceBreakdown from "./PriceBreakdown";
+import { formatShort, nightsBetween, toISODate } from "@/lib/date";
 import { useToast } from "@/lib/toast-context";
+import { useLocale } from "@/lib/locale-context";
 import type { ListingDetail } from "@/lib/types";
 
 export default function BookingWidget({ listing }: { listing: ListingDetail }) {
   const router = useRouter();
   const { showToast } = useToast();
+  const { formatPrice } = useLocale();
   const [checkIn, setCheckIn] = useState<Date | null>(null);
   const [checkOut, setCheckOut] = useState<Date | null>(null);
   const [guests, setGuests] = useState(1);
@@ -26,6 +29,7 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
 
   function handleReserve() {
     if (!canReserve || !checkIn || !checkOut) {
+      setDatesOpen(true);
       showToast("Please select your check-in and check-out dates", "info");
       return;
     }
@@ -42,36 +46,49 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
   }
 
   return (
-    <div className="sticky top-24 rounded-2xl border border-neutral-200 p-6 shadow-card dark:border-neutral-800">
+    <div className="sticky top-28 rounded-2xl border border-neutral-200 p-6 shadow-card dark:border-neutral-800">
       <div className="mb-4 flex items-baseline justify-between">
-        <p className="text-lg">
-          <span className="font-semibold">${listing.price_per_night.toFixed(0)}</span>{" "}
-          <span className="text-sm text-hof dark:text-neutral-400">night</span>
+        <p className="text-[22px]">
+          <span className="font-semibold">{formatPrice(listing.price_per_night)}</span>{" "}
+          <span className="text-base text-hof dark:text-neutral-400">night</span>
         </p>
         <StarRating rating={listing.rating_avg} reviewCount={listing.review_count} />
       </div>
 
-      <div className="relative rounded-xl border border-neutral-300 dark:border-neutral-600">
-        <button
-          type="button"
-          onClick={() => {
-            setDatesOpen((o) => !o);
-            setGuestsOpen(false);
-          }}
-          className="block w-full border-b border-neutral-300 px-4 py-3 text-left dark:border-neutral-600"
-        >
-          <span className="block text-[10px] font-semibold uppercase tracking-wide">Dates</span>
-          <span className="text-sm">{formatDateRange(checkIn, checkOut)}</span>
-        </button>
+      <div className="relative rounded-xl border border-neutral-400 dark:border-neutral-600">
+        <div className="grid grid-cols-2 divide-x divide-neutral-400 border-b border-neutral-400 dark:divide-neutral-600 dark:border-neutral-600">
+          <button
+            type="button"
+            onClick={() => {
+              setDatesOpen((o) => !o);
+              setGuestsOpen(false);
+            }}
+            className="px-3 py-2.5 text-left"
+          >
+            <span className="block text-[10px] font-bold uppercase tracking-wide">Check-in</span>
+            <span className="text-sm">{checkIn ? formatShort(checkIn) : "Add date"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDatesOpen((o) => !o);
+              setGuestsOpen(false);
+            }}
+            className="px-3 py-2.5 text-left"
+          >
+            <span className="block text-[10px] font-bold uppercase tracking-wide">Checkout</span>
+            <span className="text-sm">{checkOut ? formatShort(checkOut) : "Add date"}</span>
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => {
             setGuestsOpen((o) => !o);
             setDatesOpen(false);
           }}
-          className="block w-full px-4 py-3 text-left"
+          className="block w-full px-3 py-2.5 text-left"
         >
-          <span className="block text-[10px] font-semibold uppercase tracking-wide">Guests</span>
+          <span className="block text-[10px] font-bold uppercase tracking-wide">Guests</span>
           <span className="text-sm">
             {guests} guest{guests > 1 ? "s" : ""}
           </span>
@@ -95,41 +112,29 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
         {guestsOpen && (
           <div className="absolute left-0 top-full z-20 mt-2 w-[300px] rounded-2xl border border-neutral-200 bg-white p-4 shadow-popover dark:border-neutral-700 dark:bg-neutral-900">
             <GuestSelector guests={guests} onChange={setGuests} max={listing.max_guests} />
-            <p className="mt-2 text-xs text-hof dark:text-neutral-400">Max {listing.max_guests} guests</p>
+            <p className="mt-2 text-xs text-hof dark:text-neutral-400">This place has a maximum of {listing.max_guests} guests.</p>
           </div>
         )}
       </div>
 
       <button
         onClick={handleReserve}
-        className="mt-4 w-full rounded-xl bg-rausch py-3 font-semibold text-white transition-colors hover:bg-rausch_dark"
+        className="mt-4 w-full rounded-xl bg-gradient-to-r from-[#E61E4D] via-[#E31C5F] to-[#D70466] py-3.5 font-semibold text-white transition-opacity hover:opacity-90"
       >
-        Reserve
+        {canReserve ? "Reserve" : "Check availability"}
       </button>
-      <p className="mt-2 text-center text-xs text-hof dark:text-neutral-400">You won&apos;t be charged yet</p>
+      {canReserve && <p className="mt-3 text-center text-sm text-hof dark:text-neutral-400">You won&apos;t be charged yet</p>}
 
       {nights > 0 && (
-        <div className="mt-6 space-y-3 border-t border-neutral-200 pt-4 text-sm dark:border-neutral-800">
-          <div className="flex justify-between">
-            <span className="underline">
-              ${listing.price_per_night.toFixed(0)} x {nights} night{nights !== 1 ? "s" : ""}
-            </span>
-            <span>${subtotal.toFixed(2)}</span>
-          </div>
-          {listing.cleaning_fee > 0 && (
-            <div className="flex justify-between">
-              <span className="underline">Cleaning fee</span>
-              <span>${listing.cleaning_fee.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="flex justify-between">
-            <span className="underline">Service fee</span>
-            <span>${serviceFee.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between border-t border-neutral-200 pt-3 font-semibold dark:border-neutral-800">
-            <span>Total</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
+        <div className="mt-6 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+          <PriceBreakdown
+            nights={nights}
+            pricePerNight={listing.price_per_night}
+            cleaningFee={listing.cleaning_fee}
+            serviceFee={serviceFee}
+            subtotal={subtotal}
+            total={total}
+          />
         </div>
       )}
     </div>

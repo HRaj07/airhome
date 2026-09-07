@@ -8,6 +8,7 @@ import { CalendarDays } from "lucide-react";
 import { bookingsApi } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
+import { useLocale } from "@/lib/locale-context";
 import EmptyState from "@/components/EmptyState";
 import type { Booking } from "@/lib/types";
 
@@ -100,6 +101,7 @@ export default function TripsPage() {
 }
 
 function TripCard({ booking, onCancel, cancelling }: { booking: Booking; onCancel?: () => void; cancelling?: boolean }) {
+  const { formatPrice } = useLocale();
   return (
     <div className="flex gap-4 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
       <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800">
@@ -127,7 +129,7 @@ function TripCard({ booking, onCancel, cancelling }: { booking: Booking; onCance
           </p>
         </div>
         <div className="flex items-center justify-between">
-          <p className="font-semibold">${booking.total_price.toFixed(2)}</p>
+          <p className="font-semibold">{formatPrice(booking.total_price, { decimals: 2 })}</p>
           {onCancel && booking.status === "confirmed" && (
             <button onClick={onCancel} disabled={cancelling} className="text-sm font-semibold text-rausch underline disabled:opacity-50">
               {cancelling ? "Cancelling..." : "Cancel booking"}

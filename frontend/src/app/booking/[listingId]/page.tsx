@@ -8,6 +8,7 @@ import PriceBreakdown from "@/components/PriceBreakdown";
 import { bookingsApi, listingsApi, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
+import { useLocale } from "@/lib/locale-context";
 import { fromISODate, nightsBetween, formatShort } from "@/lib/date";
 import type { Booking, ListingDetail } from "@/lib/types";
 
@@ -17,6 +18,7 @@ export default function BookingPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const { formatPrice } = useLocale();
 
   const listingId = params?.listingId as string;
   const checkInISO = searchParams.get("check_in") || "";
@@ -122,7 +124,7 @@ export default function BookingPage() {
             {confirmedBooking.check_in} → {confirmedBooking.check_out} · {confirmedBooking.guests_count} guest
             {confirmedBooking.guests_count > 1 ? "s" : ""}
           </p>
-          <p className="mt-2 font-semibold">${confirmedBooking.total_price.toFixed(2)} total</p>
+          <p className="mt-2 font-semibold">{formatPrice(confirmedBooking.total_price, { decimals: 2 })} total</p>
         </div>
         <div className="mt-8 flex justify-center gap-3">
           <button onClick={() => router.push("/trips")} className="rounded-lg bg-rausch px-5 py-2.5 text-sm font-semibold text-white hover:bg-rausch_dark">

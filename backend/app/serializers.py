@@ -40,6 +40,7 @@ def to_listing_card(db: Session, listing: models.Listing, current_user_id: Optio
     return schemas.ListingCard(
         id=listing.id,
         title=listing.title,
+        neighborhood=listing.neighborhood or "",
         city=listing.city,
         state=listing.state,
         country=listing.country,

@@ -10,12 +10,14 @@ export default function ListingGrid({
   loading,
   hasMore,
   onLoadMore,
+  nights = 2,
   emptyMessage = "No listings match your search",
 }: {
   listings: ListingCardType[];
   loading: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
+  nights?: number;
   emptyMessage?: string;
 }) {
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -40,16 +42,16 @@ export default function ListingGrid({
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
         {listings.map((listing) => (
-          <ListingCard key={listing.id} listing={listing} />
+          <ListingCard key={listing.id} listing={listing} nights={nights} />
         ))}
         {loading &&
-          Array.from({ length: 10 }).map((_, i) => (
+          Array.from({ length: 12 }).map((_, i) => (
             <div key={`skeleton-${i}`} className="animate-pulse">
-              <div className="aspect-square w-full rounded-xl2 bg-neutral-200 dark:bg-neutral-800" />
-              <div className="mt-2 h-4 w-3/4 rounded bg-neutral-200 dark:bg-neutral-800" />
-              <div className="mt-1 h-4 w-1/2 rounded bg-neutral-200 dark:bg-neutral-800" />
+              <div className="aspect-[1/0.95] w-full rounded-2xl bg-neutral-200 dark:bg-neutral-800" />
+              <div className="mt-3 h-4 w-3/4 rounded bg-neutral-200 dark:bg-neutral-800" />
+              <div className="mt-2 h-4 w-1/2 rounded bg-neutral-200 dark:bg-neutral-800" />
             </div>
           ))}
       </div>

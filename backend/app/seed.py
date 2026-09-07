@@ -33,22 +33,34 @@ AMENITIES = [
     ("EV charger", "ev-charger"),
 ]
 
+# (city, state, country, lat, lng, neighborhoods) — 6 listings are generated per city,
+# one per neighborhood, so the homepage carousel rows look full.
 CITIES = [
-    ("New York", "NY", "United States", 40.7128, -74.0060),
-    ("Los Angeles", "CA", "United States", 34.0522, -118.2437),
-    ("San Francisco", "CA", "United States", 37.7749, -122.4194),
-    ("Austin", "TX", "United States", 30.2672, -97.7431),
-    ("Miami", "FL", "United States", 25.7617, -80.1918),
-    ("Paris", "", "France", 48.8566, 2.3522),
-    ("London", "", "United Kingdom", 51.5074, -0.1278),
-    ("Tokyo", "", "Japan", 35.6762, 139.6503),
-    ("Barcelona", "", "Spain", 41.3874, 2.1686),
-    ("Bali", "", "Indonesia", -8.3405, 115.0920),
-    ("Lisbon", "", "Portugal", 38.7223, -9.1393),
-    ("Cape Town", "", "South Africa", -33.9249, 18.4241),
+    ("New York", "NY", "United States", 40.7128, -74.0060,
+     ["Williamsburg", "SoHo", "Harlem", "Upper West Side", "Astoria", "Brooklyn Heights"]),
+    ("Los Angeles", "CA", "United States", 34.0522, -118.2437,
+     ["Venice", "Silver Lake", "Santa Monica", "Echo Park", "Hollywood Hills", "Los Feliz"]),
+    ("Paris", "", "France", 48.8566, 2.3522,
+     ["Le Marais", "Montmartre", "Saint-Germain", "Belleville", "Latin Quarter", "Canal Saint-Martin"]),
+    ("London", "", "United Kingdom", 51.5074, -0.1278,
+     ["Shoreditch", "Notting Hill", "Camden", "Brixton", "Kensington", "Hackney"]),
+    ("Tokyo", "", "Japan", 35.6762, 139.6503,
+     ["Shibuya", "Shinjuku", "Asakusa", "Nakameguro", "Koenji", "Ginza"]),
+    ("Barcelona", "", "Spain", 41.3874, 2.1686,
+     ["El Born", "Gràcia", "Eixample", "Barceloneta", "Poblenou", "Gothic Quarter"]),
+    ("Bali", "", "Indonesia", -8.3405, 115.0920,
+     ["Canggu", "Ubud", "Seminyak", "Uluwatu", "Sanur", "Nusa Dua"]),
+    ("Lisbon", "", "Portugal", 38.7223, -9.1393,
+     ["Alfama", "Bairro Alto", "Chiado", "Belém", "Príncipe Real", "Cais do Sodré"]),
 ]
 
-PROPERTY_TYPES = list(models.PropertyType)
+# Weighted so most listings are entire homes, like the real marketplace.
+PROPERTY_TYPES = (
+    [models.PropertyType.entire_home] * 6
+    + [models.PropertyType.private_room] * 2
+    + [models.PropertyType.hotel_room]
+    + [models.PropertyType.shared_room]
+)
 
 TITLE_TEMPLATES = [
     "Sunny {type} in the heart of {city}",
@@ -150,11 +162,9 @@ def run():
             db.refresh(u)
 
         listings = []
-        listing_num = 0
-        for city, state, country, lat, lng in CITIES:
-            # 1-2 listings per city, ~18-20 total
-            for _ in range(random.choice([1, 2])):
-                listing_num += 1
+        for city, state, country, lat, lng, neighborhoods in CITIES:
+            # one listing per neighborhood -> 6 per city, 48 total
+            for neighborhood in neighborhoods:
                 ptype = random.choice(PROPERTY_TYPES)
                 title = random.choice(TITLE_TEMPLATES).format(type=TYPE_LABEL[ptype], city=city)
                 host = random.choice(host_objs)
@@ -182,6 +192,7 @@ def run():
                     cleaning_fee=cleaning_fee,
                     service_fee_pct=0.12,
                     address=f"{random.randint(1, 999)} {random.choice(['Main St', 'Oak Ave', 'Sunset Blvd', 'River Rd', 'Market St'])}",
+                    neighborhood=neighborhood,
                     city=city,
                     state=state,
                     country=country,
@@ -249,20 +260,22 @@ def run():
                 )
                 db.add(review)
 
-                extra_reviews = random.randint(0, 3)
+                # Mostly 4-5 star reviews so a good share of listings qualify as
+                # "Guest favourite" (>= 4.8 avg with several reviews), like the real site.
+                extra_reviews = random.randint(1, 6)
                 for _ in range(extra_reviews):
                     other_guest = random.choice(guest_objs)
                     db.add(
                         models.Review(
                             listing_id=listing.id,
                             author_id=other_guest.id,
-                            rating=random.randint(3, 5),
+                            rating=random.choice([3, 4, 4, 5, 5, 5, 5]),
                             comment=random.choice(REVIEW_COMMENTS),
                         )
                     )
 
         # Upcoming bookings -> block out calendar dates, populate "My Trips" / host dashboards
-        for listing in random.sample(listings, k=min(10, len(listings))):
+        for listing in random.sample(listings, k=min(18, len(listings))):
             guest = random.choice(guest_objs)
             nights = random.randint(2, 5)
             check_in = today + datetime.timedelta(days=random.randint(5, 60))

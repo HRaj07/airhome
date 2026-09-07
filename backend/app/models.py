@@ -65,6 +65,7 @@ class Listing(Base):
     cleaning_fee = Column(Float, default=0.0)
     service_fee_pct = Column(Float, default=0.12)
     address = Column(String, default="")
+    neighborhood = Column(String, default="")
     city = Column(String, nullable=False, index=True)
     state = Column(String, default="")
     country = Column(String, default="")

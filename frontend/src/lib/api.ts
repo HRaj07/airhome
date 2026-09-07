@@ -1,6 +1,7 @@
 import type {
   Amenity,
   Booking,
+  FeaturedRow,
   HostDashboard,
   ListingCard,
   ListingDetail,
@@ -94,6 +95,7 @@ function toQueryString(params: Record<string, unknown>): string {
 
 export const listingsApi = {
   search: (params: SearchParams) => request<PaginatedListings>(`/listings${toQueryString(params)}`),
+  featured: () => request<FeaturedRow[]>("/listings/featured"),
   get: (id: number | string) => request<ListingDetail>(`/listings/${id}`),
   availability: (id: number | string) => request<{ blocked_dates: string[] }>(`/listings/${id}/availability`),
   mine: () => request<ListingCard[]>("/listings/mine"),

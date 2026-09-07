@@ -7,6 +7,7 @@ import Image from "next/image";
 import { Plus, Pencil, Trash2, DollarSign, CalendarCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
+import { useLocale } from "@/lib/locale-context";
 import { hostApi, listingsApi } from "@/lib/api";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import EmptyState from "@/components/EmptyState";
@@ -15,6 +16,7 @@ import type { HostDashboard } from "@/lib/types";
 export default function HostDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const { formatPrice } = useLocale();
   const router = useRouter();
   const [data, setData] = useState<HostDashboard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +75,7 @@ export default function HostDashboardPage() {
       </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard icon={<DollarSign size={20} />} label="Total revenue" value={`$${totalRevenue.toFixed(2)}`} />
+        <StatCard icon={<DollarSign size={20} />} label="Total revenue" value={formatPrice(totalRevenue, { decimals: 2 })} />
         <StatCard icon={<CalendarCheck size={20} />} label="Confirmed bookings" value={String(totalBookings)} />
         <StatCard icon={<Pencil size={20} />} label="Active listings" value={String(data.listings.length)} />
       </div>
@@ -106,9 +108,9 @@ export default function HostDashboardPage() {
                         <span className="max-w-[200px] truncate">{l.title}</span>
                       </Link>
                     </td>
-                    <td className="py-3 pr-4">${l.price_per_night.toFixed(0)}</td>
+                    <td className="py-3 pr-4">{formatPrice(l.price_per_night)}</td>
                     <td className="py-3 pr-4">{l.booking_count}</td>
-                    <td className="py-3 pr-4">${l.revenue.toFixed(2)}</td>
+                    <td className="py-3 pr-4">{formatPrice(l.revenue, { decimals: 2 })}</td>
                     <td className="py-3 pr-4">{l.review_count > 0 ? l.rating_avg.toFixed(1) : "New"}</td>
                     <td className="py-3">
                       <div className="flex gap-2">
@@ -150,7 +152,7 @@ export default function HostDashboardPage() {
                     {b.check_in} → {b.check_out} · {b.guests_count} guest{b.guests_count > 1 ? "s" : ""}
                   </p>
                 </div>
-                <p className="font-semibold">${b.total_price.toFixed(2)}</p>
+                <p className="font-semibold">{formatPrice(b.total_price, { decimals: 2 })}</p>
               </div>
             ))}
           </div>

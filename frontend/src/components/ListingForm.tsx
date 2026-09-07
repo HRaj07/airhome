@@ -29,6 +29,7 @@ export const emptyListingForm = (): ListingFormData => ({
   cleaning_fee: 30,
   service_fee_pct: 0.12,
   address: "",
+  neighborhood: "",
   city: "",
   state: "",
   country: "",
@@ -169,7 +170,8 @@ export default function ListingForm({
               className="w-full rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
             />
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <TextField label="Neighbourhood (shown on cards, e.g. Montmartre)" value={value.neighborhood} onChange={(v) => set("neighborhood", v)} />
             <TextField label="City" value={value.city} onChange={(v) => set("city", v)} required />
             <TextField label="State/Region" value={value.state} onChange={(v) => set("state", v)} />
             <TextField label="Country" value={value.country} onChange={(v) => set("country", v)} required />

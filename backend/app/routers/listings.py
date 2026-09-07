@@ -65,6 +65,40 @@ def search_listings(
     return schemas.PaginatedListings(items=items, total=total, page=page, limit=limit, has_more=end < total)
 
 
+ROW_TITLES = [
+    "Popular homes in {city}",
+    "Available in {city} this weekend",
+    "Stay in {city}",
+    "Homes in {city} guests love",
+    "Places to stay in {city}",
+]
+
+
+@router.get("/featured", response_model=List[schemas.FeaturedRow])
+def featured_rows(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user_optional),
+):
+    """Homepage carousel rows: listings grouped by city, largest groups first."""
+    listings = db.query(models.Listing).order_by(models.Listing.id.asc()).all()
+    by_city: dict[str, list[models.Listing]] = {}
+    for l in listings:
+        by_city.setdefault(l.city, []).append(l)
+
+    ordered = sorted(by_city.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    user_id = current_user.id if current_user else None
+    rows = []
+    for i, (city, group) in enumerate(ordered):
+        rows.append(
+            schemas.FeaturedRow(
+                title=ROW_TITLES[i % len(ROW_TITLES)].format(city=city),
+                city=city,
+                items=[to_listing_card(db, l, user_id) for l in group[:12]],
+            )
+        )
+    return rows
+
+
 @router.get("/mine", response_model=List[schemas.ListingCard])
 def my_listings(db: Session = Depends(get_db), host: models.User = Depends(require_host)):
     listings = db.query(models.Listing).filter(models.Listing.host_id == host.id).order_by(models.Listing.id.desc()).all()
@@ -100,6 +134,7 @@ def _apply_listing_fields(listing: models.Listing, payload: schemas.ListingCreat
     listing.cleaning_fee = payload.cleaning_fee
     listing.service_fee_pct = payload.service_fee_pct
     listing.address = payload.address
+    listing.neighborhood = payload.neighborhood
     listing.city = payload.city
     listing.state = payload.state
     listing.country = payload.country

@@ -23,6 +23,7 @@ function toFormData(l: ListingDetail): ListingFormData {
     cleaning_fee: l.cleaning_fee,
     service_fee_pct: l.service_fee_pct,
     address: l.address,
+    neighborhood: l.neighborhood,
     city: l.city,
     state: l.state,
     country: l.country,

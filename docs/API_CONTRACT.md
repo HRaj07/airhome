@@ -19,7 +19,7 @@ All list endpoints are paginated: `?page=1&limit=12` -> `{ items: [...], total, 
 ### Listing (list view / card)
 ```
 {
-  id, title, city, state, country, price_per_night, rating_avg, review_count,
+  id, title, neighborhood, city, state, country, price_per_night, rating_avg, review_count,
   cover_photo_url, property_type, max_guests, bedrooms, beds, bathrooms,
   latitude, longitude, is_wishlisted (bool, only if authed)
 }
@@ -62,6 +62,7 @@ All list endpoints are paginated: `?page=1&limit=12` -> `{ items: [...], total, 
 
 ### Listings
 - `GET /listings` — query: `location, check_in, check_out, guests, min_price, max_price, property_type, amenities (csv of ids), page, limit` -> paginated Listing[list]
+- `GET /listings/featured` -> `[{ title: "Popular homes in Paris", city, items: Listing[list][] }]` — homepage carousel rows, grouped by city
 - `GET /listings/{id}` -> Listing[detail]
 - `POST /listings` — auth (host) — body: title, description, property_type, bedrooms, beds, bathrooms, max_guests, price_per_night, cleaning_fee, service_fee_pct, address, city, state, country, latitude, longitude, amenity_ids[], photo_urls[]
 - `PUT /listings/{id}` — auth (owner host)

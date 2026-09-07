@@ -67,6 +67,7 @@ class PhotoOut(BaseModel):
 class ListingCard(BaseModel):
     id: int
     title: str
+    neighborhood: str = ""
     city: str
     state: str = ""
     country: str = ""
@@ -110,6 +111,7 @@ class ListingCreate(BaseModel):
     cleaning_fee: float = 0.0
     service_fee_pct: float = 0.12
     address: str = ""
+    neighborhood: str = ""
     city: str
     state: str = ""
     country: str = ""
@@ -129,6 +131,13 @@ class PaginatedListings(BaseModel):
     page: int
     limit: int
     has_more: bool
+
+
+class FeaturedRow(BaseModel):
+    """A homepage carousel row, e.g. 'Popular homes in Paris'."""
+    title: str
+    city: str
+    items: List[ListingCard]
 
 
 # ---------- Booking ----------
