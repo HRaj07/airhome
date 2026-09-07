@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..database import get_db
 from ..deps import get_current_user
-from ..serializers import to_listing_card
+from ..serializers import to_listing_cards
 
 router = APIRouter(prefix="/wishlist", tags=["wishlist"])
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/wishlist", tags=["wishlist"])
 @router.get("", response_model=List[schemas.ListingCard])
 def get_wishlist(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     items = db.query(models.WishlistItem).filter(models.WishlistItem.user_id == user.id).all()
-    return [to_listing_card(db, item.listing, user.id) for item in items]
+    return to_listing_cards(db, [item.listing for item in items], user.id)
 
 
 @router.post("/{listing_id}", response_model=schemas.OkResponse)

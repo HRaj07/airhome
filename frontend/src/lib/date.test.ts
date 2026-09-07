@@ -13,6 +13,10 @@ import {
   rangeHitsBlockedDate,
   buildCalendarGrid,
   formatDateRange,
+  upcomingWeekend,
+  formatDateRangeCompact,
+  timeAgo,
+  tenure,
 } from "./date";
 
 let failures: string[] = [];
@@ -72,6 +76,37 @@ check(
   formatDateRange(fromISODate("2026-09-10"), fromISODate("2026-09-13")) === "Sep 10 - Sep 13"
 );
 
+// --- upcomingWeekend / formatDateRangeCompact ---
+const wk = upcomingWeekend(fromISODate("2026-09-07")); // a Monday
+check("upcomingWeekend starts on a Friday", wk.checkIn.getDay() === 5);
+check("upcomingWeekend is 2 nights", nightsBetween(wk.checkIn, wk.checkOut) === 2);
+check("upcomingWeekend is in the future", wk.checkIn.getTime() > fromISODate("2026-09-07").getTime());
+const wkFromFriday = upcomingWeekend(fromISODate("2026-09-11")); // itself a Friday
+check("upcomingWeekend from a Friday moves to next week", isSameDay(wkFromFriday.checkIn, fromISODate("2026-09-18")));
+
+check(
+  "compact range within one month",
+  formatDateRangeCompact(fromISODate("2026-09-11"), fromISODate("2026-09-13")) === "11\u201313 Sept"
+);
+check(
+  "compact range across months",
+  formatDateRangeCompact(fromISODate("2026-09-30"), fromISODate("2026-10-02")) === "30 Sept \u2013 2 Oct"
+);
+
+// ---- timeAgo / tenure (review dates and "N years on airhome") ----
+{
+  const now = new Date("2026-09-07T12:00:00Z");
+  const iso = (daysAgo: number) => new Date(now.getTime() - daysAgo * 86_400_000).toISOString();
+  const cases: [number, string][] = [
+    [0, "today"], [1, "1 day ago"], [3, "3 days ago"], [7, "1 week ago"], [20, "2 weeks ago"],
+    [31, "1 month ago"], [200, "6 months ago"], [370, "1 year ago"], [800, "2 years ago"],
+  ];
+  for (const [d, want] of cases) check(`timeAgo(${d} days) = "${want}"`, timeAgo(iso(d), now) === want);
+  check("tenure 300 days = 10 months", tenure(iso(300), now) === "10 months");
+  check("tenure 2600 days = 7 years", tenure(iso(2600), now) === "7 years");
+  check("tenure 45 days = 1 month", tenure(iso(45), now) === "1 month");
+}
+
 console.log();
 if (failures.length > 0) {
   console.log(`${failures.length} test(s) FAILED:`, failures);
@@ -79,3 +114,4 @@ if (failures.length > 0) {
 } else {
   console.log("All date/calendar tests passed.");
 }
+

@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import { Lang, langFromCode, translate, translateContent } from "./i18n";
+import { currencyFromIp, currencyFromTimeZone } from "./geo";
 
 /**
  * Currency + language/region preferences, chosen from the globe icon in the
@@ -104,16 +105,50 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const [translateEnabled, setTranslateEnabledState] = useState(true);
 
   useEffect(() => {
+    let chosenByUser = false;
     try {
       const storedCurrency = window.localStorage.getItem("airbnb_currency") as CurrencyCode | null;
       const storedLanguage = window.localStorage.getItem("airbnb_language");
-      if (storedCurrency && CURRENCIES.some((c) => c.code === storedCurrency)) setCurrencyCode(storedCurrency);
+      if (storedCurrency && CURRENCIES.some((c) => c.code === storedCurrency)) {
+        setCurrencyCode(storedCurrency);
+        chosenByUser = true;
+      }
       if (storedLanguage) setLanguageCode(storedLanguage);
       const storedTranslate = window.localStorage.getItem("airbnb_translate");
       if (storedTranslate !== null) setTranslateEnabledState(storedTranslate === "1");
     } catch {
       // ignore storage errors
     }
+
+    // Nobody has picked a currency, so guess one from where they are: showing
+    // a guest in Delhi "$382 total" is the kind of detail that makes the whole
+    // page feel foreign. The guess is never written to storage — only an
+    // explicit choice from the globe menu is — so it stays live if they travel.
+    if (chosenByUser) return;
+
+    const supported = (code: string | null): code is CurrencyCode =>
+      !!code && CURRENCIES.some((c) => c.code === code);
+
+    const fromZone = currencyFromTimeZone();
+    if (supported(fromZone)) setCurrencyCode(fromZone);
+
+    let cancelled = false;
+    currencyFromIp().then((fromIp) => {
+      // A laptop keeps its home time zone abroad, so the IP lookup gets the
+      // final say — but only while the visitor still hasn't chosen for
+      // themselves, and only for a currency we can actually render.
+      if (cancelled || !supported(fromIp)) return;
+      try {
+        if (window.localStorage.getItem("airbnb_currency")) return;
+      } catch {
+        // storage unreadable — the guess is still safe to apply
+      }
+      setCurrencyCode(fromIp);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Keep <html lang> in sync so screen readers / browser translation know the page language.

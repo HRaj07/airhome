@@ -121,3 +121,53 @@ export function buildCalendarGrid(year: number, month: number, blockedISO: strin
   }
   return days;
 }
+
+const MONTH_COMPACT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
+
+/** The next Friday->Sunday, used as the default 2-night window on cards
+ *  (Airbnb shows a concrete sample date range rather than "for 2 nights"). */
+export function upcomingWeekend(from: Date = new Date()): { checkIn: Date; checkOut: Date } {
+  const start = startOfDay(from);
+  const daysUntilFriday = (5 - start.getDay() + 7) % 7 || 7; // always a future Friday
+  const checkIn = addDays(start, daysUntilFriday);
+  return { checkIn, checkOut: addDays(checkIn, 2) };
+}
+
+/** "11–13 Sept" when both dates share a month, otherwise "30 Sept – 2 Oct". */
+export function formatDateRangeCompact(checkIn: Date, checkOut: Date): string {
+  const sameMonth = checkIn.getMonth() === checkOut.getMonth() && checkIn.getFullYear() === checkOut.getFullYear();
+  const m1 = MONTH_COMPACT[checkIn.getMonth()];
+  const m2 = MONTH_COMPACT[checkOut.getMonth()];
+  if (sameMonth) return `${checkIn.getDate()}\u2013${checkOut.getDate()} ${m1}`;
+  return `${checkIn.getDate()} ${m1} \u2013 ${checkOut.getDate()} ${m2}`;
+}
+
+/**
+ * "1 day ago", "3 weeks ago", "2 years ago" — how Airbnb dates reviews.
+ * Falls back to months/years rather than stacking up hundreds of days.
+ */
+export function timeAgo(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso);
+  const days = Math.max(0, Math.floor((now.getTime() - then.getTime()) / 86_400_000));
+  if (days === 0) return "today";
+  if (days === 1) return "1 day ago";
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks === 1) return "1 week ago";
+  if (days < 30) return `${weeks} weeks ago`;
+  const months = Math.floor(days / 30);
+  if (months === 1) return "1 month ago";
+  if (months < 12) return `${months} months ago`;
+  const years = Math.floor(days / 365);
+  return years === 1 ? "1 year ago" : `${years} years ago`;
+}
+
+/** "10 months on airhome" / "7 years on airhome" — tenure as Airbnb writes it. */
+export function tenure(joinedISO: string, now: Date = new Date()): string {
+  const days = Math.max(0, Math.floor((now.getTime() - new Date(joinedISO).getTime()) / 86_400_000));
+  const months = Math.floor(days / 30);
+  if (months < 1) return "New";
+  if (months < 12) return `${months} ${months === 1 ? "month" : "months"}`;
+  const years = Math.floor(days / 365);
+  return `${years} ${years === 1 ? "year" : "years"}`;
+}

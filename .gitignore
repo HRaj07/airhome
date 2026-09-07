@@ -10,3 +10,6 @@ venv/
 dist/
 build/
 
+*.log
+tsconfig.tsbuildinfo
+frontend/.env.local

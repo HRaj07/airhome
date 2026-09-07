@@ -7,14 +7,16 @@ import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..database import get_db
+from ..rows import CANDIDATE_FACTOR, distinct_cards
+from ..utils import haversine_km
 from ..deps import get_current_user
 from ..serializers import (
-    to_experience_card,
+    to_experience_cards,
     to_experience_detail,
     to_experience_booking_out,
     experience_spots_left,
@@ -22,12 +24,34 @@ from ..serializers import (
 
 router = APIRouter(prefix="/experiences", tags=["experiences"])
 
+#: Cards per carousel row.
+PER_ROW = 12
+
 EXPERIENCE_ROW_TITLES = [
     "Happening today in {city}",
     "Tomorrow in {city}",
     "This weekend in {city}",
     "Top-rated in {city}",
 ]
+
+#: Used instead of the above once we know roughly where the guest is, so the
+#: rows read as local. Mirrors NEAR_ROW_TITLES in the listings router.
+NEAR_EXPERIENCE_TITLES = [
+    "Experiences near you in {city}",
+    "Happening near {city}",
+    "This weekend in {city}",
+    "Top-rated near {city}",
+]
+
+NEAR_SERVICE_TITLES = [
+    "Services near you in {city}",
+    "Available near {city}",
+    "Book in {city}",
+    "Top-rated near {city}",
+]
+
+#: A city further away than this is a suggestion, not a local one.
+NEAR_RADIUS_KM = 400
 
 
 def _base_query(db: Session, kind: models.ExperienceKind):
@@ -37,36 +61,162 @@ def _base_query(db: Session, kind: models.ExperienceKind):
 @router.get("/featured", response_model=List[schemas.ExperienceRow])
 def featured(
     kind: models.ExperienceKind = Query(models.ExperienceKind.experience),
+    rows: int = Query(12, ge=1, le=40, description="How many carousel rows to build"),
+    lat: Optional[float] = Query(None, ge=-90, le=90),
+    lng: Optional[float] = Query(None, ge=-180, le=180),
     db: Session = Depends(get_db),
 ):
     """Carousel rows for the Experiences / Services tabs.
 
-    Experiences are grouped by city (like Airbnb's "Happening today in ..."),
-    services by category ("Photography", "Training", ...)."""
-    items = _base_query(db, kind).order_by(models.Experience.id.asc()).all()
-    groups: dict[str, list[models.Experience]] = {}
-    if kind == models.ExperienceKind.service:
-        for e in items:
-            groups.setdefault(e.category, []).append(e)
-        ordered = sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))
-        return [
-            schemas.ExperienceRow(title=cat, key=cat, items=[to_experience_card(db, e) for e in group[:12]])
-            for cat, group in ordered
-        ]
+    Without coordinates: experiences are grouped by city (Airbnb's "Happening
+    today in ..."), services by category ("Photography", "Training", ...).
 
+    With coordinates both kinds group by city instead, ranked by distance from
+    the guest, so the two tabs answer "what can I book around here?" the same
+    way the homes tab does — a service catalogue is useless if the photographer
+    is on another continent."""
+    if lat is not None and lng is not None:
+        return _featured_near(db, kind, rows, lat, lng)
+    # Group in SQL and build only the rows the page shows. With ~500 cities in
+    # the catalogue, grouping every row in Python meant serializing thousands of
+    # cards for a page that displays a dozen rows.
+    group_col = models.Experience.category if kind == models.ExperienceKind.service else models.Experience.city
+    keys = [
+        row[0]
+        for row in db.query(group_col, func.count(models.Experience.id))
+        .filter(models.Experience.kind == kind)
+        .group_by(group_col)
+        .order_by(func.count(models.Experience.id).desc(), group_col.asc())
+        .limit(rows)
+        .all()
+    ]
+    if not keys:
+        return []
+
+    items = (
+        _base_query(db, kind)
+        .options(selectinload(models.Experience.photos))
+        .filter(group_col.in_(keys))
+        .order_by(models.Experience.id.asc())
+        .all()
+    )
+    groups: dict[str, list[models.Experience]] = {k: [] for k in keys}
     for e in items:
-        groups.setdefault(e.city, []).append(e)
-    ordered = sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))
-    rows = []
-    for i, (city, group) in enumerate(ordered):
-        rows.append(
+        group = groups.get(e.category if kind == models.ExperienceKind.service else e.city)
+        # Over-gather: a category row draws the same title from every city, so
+        # it needs spares to survive de-duplication below.
+        if group is not None and len(group) < PER_ROW * CANDIDATE_FACTOR:
+            group.append(e)
+
+    flat = [e for k in keys for e in groups[k]]
+    cards = {c.id: c for c in to_experience_cards(db, flat)}
+
+    used_photos: set = set()
+
+    def row_items(key: str):
+        return distinct_cards(
+            [cards[e.id] for e in groups[key]],
+            PER_ROW,
+            title_of=lambda c: c.title,
+            photo_of=lambda c: c.cover_photo_url or "",
+            used_photos=used_photos,
+        )
+
+    if kind == models.ExperienceKind.service:
+        out = []
+        for k in keys:
+            items = row_items(k)
+            if items:
+                out.append(schemas.ExperienceRow(title=k, key=k, key_type="category", items=items))
+        return out
+
+    out = []
+    for i, k in enumerate(keys):
+        items = row_items(k)
+        if not items:
+            continue
+        out.append(
             schemas.ExperienceRow(
-                title=EXPERIENCE_ROW_TITLES[i % len(EXPERIENCE_ROW_TITLES)].format(city=city),
-                key=city,
-                items=[to_experience_card(db, e) for e in group[:12]],
+                title=EXPERIENCE_ROW_TITLES[i % len(EXPERIENCE_ROW_TITLES)].format(city=k),
+                key=k,
+                key_type="city",
+                items=items,
             )
         )
-    return rows
+    return out
+
+
+def _featured_near(db: Session, kind: models.ExperienceKind, rows: int,
+                   lat: float, lng: float) -> List[schemas.ExperienceRow]:
+    """City rows ordered by how far each city is from the guest.
+
+    Distances are computed from each city's average coordinates — the same
+    approach the listings router uses, so a Delhi guest gets Delhi first on
+    every tab rather than whichever city happens to have the most inventory."""
+    city_coords = (
+        db.query(
+            models.Experience.city,
+            func.avg(models.Experience.latitude),
+            func.avg(models.Experience.longitude),
+        )
+        .filter(models.Experience.kind == kind)
+        .group_by(models.Experience.city)
+        .all()
+    )
+    if not city_coords:
+        return []
+
+    ranked = sorted(
+        ((c, haversine_km(lat, lng, clat or 0.0, clng or 0.0)) for c, clat, clng in city_coords),
+        key=lambda pair: pair[1],
+    )[:rows]
+    keys = [c for c, _ in ranked]
+    distances = dict(ranked)
+
+    items = (
+        _base_query(db, kind)
+        .options(selectinload(models.Experience.photos))
+        .filter(models.Experience.city.in_(keys))
+        .order_by(models.Experience.id.asc())
+        .all()
+    )
+    groups: dict[str, list[models.Experience]] = {k: [] for k in keys}
+    for e in items:
+        group = groups.get(e.city)
+        if group is not None and len(group) < PER_ROW * CANDIDATE_FACTOR:
+            group.append(e)
+
+    flat = [e for k in keys for e in groups[k]]
+    cards = {c.id: c for c in to_experience_cards(db, flat)}
+
+    near_titles = (
+        NEAR_SERVICE_TITLES if kind == models.ExperienceKind.service else NEAR_EXPERIENCE_TITLES
+    )
+    far_titles = (
+        ["{city}"] if kind == models.ExperienceKind.service else EXPERIENCE_ROW_TITLES
+    )
+    out = []
+    used_photos: set = set()
+    for i, k in enumerate(keys):
+        items = distinct_cards(
+            [cards[e.id] for e in groups[k]],
+            PER_ROW,
+            title_of=lambda c: c.title,
+            photo_of=lambda c: c.cover_photo_url or "",
+            used_photos=used_photos,
+        )
+        if not items:
+            continue
+        titles = near_titles if distances.get(k, float("inf")) <= NEAR_RADIUS_KM else far_titles
+        out.append(
+            schemas.ExperienceRow(
+                title=titles[i % len(titles)].format(city=k),
+                key=k,
+                key_type="city",
+                items=items,
+            )
+        )
+    return out
 
 
 @router.get("", response_model=schemas.PaginatedExperiences)
@@ -89,20 +239,30 @@ def search(
     if guests:
         q = q.filter(models.Experience.max_guests >= guests)
 
-    all_matching = q.order_by(models.Experience.id.asc()).all()
-    if date:
-        needed = guests or 1
-        all_matching = [e for e in all_matching if experience_spots_left(e, date) >= needed]
+    q = q.options(selectinload(models.Experience.photos))
 
-    total = len(all_matching)
-    start = (page - 1) * limit
-    page_items = all_matching[start : start + limit]
+    if date:
+        # Per-date capacity has to be evaluated against that date's bookings, so
+        # this one filter stays in Python — but it runs over the rows matching
+        # the other filters, not the whole table, and only for dated searches.
+        q = q.options(selectinload(models.Experience.bookings))
+        needed = guests or 1
+        matching = [e for e in q.order_by(models.Experience.id.asc()).all()
+                    if experience_spots_left(e, date) >= needed]
+        total = len(matching)
+        start = (page - 1) * limit
+        page_items = matching[start : start + limit]
+    else:
+        total = q.order_by(None).with_entities(func.count(models.Experience.id)).scalar() or 0
+        start = (page - 1) * limit
+        page_items = q.order_by(models.Experience.id.asc()).offset(start).limit(limit).all()
+
     return schemas.PaginatedExperiences(
-        items=[to_experience_card(db, e) for e in page_items],
+        items=to_experience_cards(db, page_items),
         total=total,
         page=page,
         limit=limit,
-        has_more=start + limit < total,
+        has_more=start + len(page_items) < total,
     )
 
 

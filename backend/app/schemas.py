@@ -14,15 +14,52 @@ class UserPublic(BaseModel):
     avatar_url: str = ""
     is_host: bool = False
     is_superhost: bool = False
+    identity_verified: bool = True
     bio: str = ""
+    home_city: str = ""
+    languages: str = "English"
     created_at: datetime.datetime
 
     class Config:
         from_attributes = True
 
 
+class ProfileReview(BaseModel):
+    """A review as shown on someone's profile: what they wrote, and about what."""
+    id: int
+    rating: int
+    comment: str
+    created_at: datetime.datetime
+    subject_kind: str          # "listing" | "experience"
+    subject_id: int
+    subject_title: str
+    subject_city: str
+
+
+class UserProfile(UserPublic):
+    """The public profile page: a person plus the numbers Airbnb shows beside
+    their photo (trips, reviews, months on the platform)."""
+    trips: int = 0
+    reviews_written: int = 0
+    months_on_platform: int = 0
+    reviews: List[ProfileReview] = []
+    listings: List["ListingCard"] = []
+
+
 class UserMe(UserPublic):
     email: EmailStr
+
+
+class UpdateProfileRequest(BaseModel):
+    """The fields a person may edit on their own profile.
+
+    Every field is optional: the client sends only what changed, and anything
+    omitted (None) is left untouched.
+    """
+    full_name: Optional[str] = Field(default=None, min_length=1, max_length=80)
+    bio: Optional[str] = Field(default=None, max_length=1000)
+    home_city: Optional[str] = Field(default=None, max_length=120)
+    languages: Optional[str] = Field(default=None, max_length=200)
 
 
 class RegisterRequest(BaseModel):
@@ -48,6 +85,7 @@ class AmenityOut(BaseModel):
     id: int
     name: str
     icon: str
+    group: str = "Essentials"
 
     class Config:
         from_attributes = True
@@ -80,6 +118,10 @@ class ListingCard(BaseModel):
     latitude: float
     longitude: float
     cover_photo_url: str = ""
+    instant_book: bool = True
+    # The first few photos, so a card can offer Airbnb's swipeable gallery
+    # without a second request per card.
+    photo_urls: List[str] = []
     rating_avg: float = 0.0
     review_count: int = 0
     is_wishlisted: bool = False
@@ -88,15 +130,42 @@ class ListingCard(BaseModel):
         from_attributes = True
 
 
+class ListingHighlight(BaseModel):
+    """One of the three "Listing highlights" on the real page, e.g.
+    "Dive right in — This is one of the few places in the area with a pool."."""
+    icon: str
+    title: str
+    body: str
+
+
+class RatingCategory(BaseModel):
+    """Airbnb's per-category breakdown: Cleanliness 4.9, Accuracy 5.0, ..."""
+    key: str
+    label: str
+    score: float
+
+
+class SleepingArea(BaseModel):
+    name: str        # "Bedroom 1"
+    beds: str        # "1 double bed"
+
+
 class ListingDetail(ListingCard):
     description: str = ""
+    guest_access: str = ""
+    other_notes: str = ""
     address: str = ""
     cleaning_fee: float = 0.0
     service_fee_pct: float = 0.12
+    instant_book: bool = True
     host: UserPublic
+    host_years_hosting: int = 1
     photos: List[PhotoOut] = []
     amenities: List[AmenityOut] = []
     blocked_dates: List[str] = []
+    highlights: List[ListingHighlight] = []
+    rating_categories: List[RatingCategory] = []
+    sleeping: List[SleepingArea] = []
 
 
 class ListingCreate(BaseModel):
@@ -117,12 +186,33 @@ class ListingCreate(BaseModel):
     country: str = ""
     latitude: float = 0.0
     longitude: float = 0.0
+    instant_book: bool = True
+    guest_access: str = ""
+    other_notes: str = ""
     amenity_ids: List[int] = []
     photo_urls: List[str] = []
 
 
 class ListingUpdate(ListingCreate):
     pass
+
+
+class NearestDestination(BaseModel):
+    city: str
+    country: str = ""
+    latitude: float = 0.0
+    longitude: float = 0.0
+    count: int = 0
+    distance_km: int = 0
+
+
+class MapPin(BaseModel):
+    """Just enough to draw a price pin: the map asks for hundreds at a time."""
+    id: int
+    latitude: float
+    longitude: float
+    price_per_night: float
+    city: str
 
 
 class PaginatedListings(BaseModel):
@@ -271,6 +361,9 @@ class ExperienceDetail(ExperienceCard):
 class ExperienceRow(BaseModel):
     title: str
     key: str
+    #: What `key` is, so the client knows which filter the row links to:
+    #: "city" -> ?location=, "category" -> ?category=.
+    key_type: str = "city"
     items: List[ExperienceCard]
 
 
@@ -298,3 +391,19 @@ class ExperienceBookingOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class Destination(BaseModel):
+    """One row in the header search "Where" dropdown."""
+    kind: str                 # "city" | "neighborhood"
+    label: str                # "Noida" / "Sector 18"
+    sublabel: str             # "Uttar Pradesh, India" / "Neighbourhood · Noida"
+    city: str                 # the value to search by
+    country: str = ""
+    latitude: float = 0.0
+    longitude: float = 0.0
+    count: int = 0
+
+
+# UserProfile references ListingCard, which is defined further down.
+UserProfile.model_rebuild()

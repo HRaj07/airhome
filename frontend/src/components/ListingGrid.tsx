@@ -10,14 +10,16 @@ export default function ListingGrid({
   loading,
   hasMore,
   onLoadMore,
-  nights = 2,
+  checkIn,
+  checkOut,
   emptyMessage = "No listings match your search",
 }: {
   listings: ListingCardType[];
   loading: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
-  nights?: number;
+  checkIn?: string;
+  checkOut?: string;
   emptyMessage?: string;
 }) {
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -44,7 +46,7 @@ export default function ListingGrid({
     <div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
         {listings.map((listing) => (
-          <ListingCard key={listing.id} listing={listing} nights={nights} />
+          <ListingCard key={listing.id} listing={listing} checkIn={checkIn} checkOut={checkOut} />
         ))}
         {loading &&
           Array.from({ length: 12 }).map((_, i) => (

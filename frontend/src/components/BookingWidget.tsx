@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import DateRangeCalendar from "./DateRangeCalendar";
 import GuestSelector from "./GuestSelector";
-import StarRating from "./StarRating";
 import PriceBreakdown from "./PriceBreakdown";
 import { formatShort, nightsBetween, toISODate } from "@/lib/date";
 import { useToast } from "@/lib/toast-context";
@@ -46,13 +45,24 @@ export default function BookingWidget({ listing }: { listing: ListingDetail }) {
   }
 
   return (
-    <div className="sticky top-28 rounded-2xl border border-neutral-200 p-6 shadow-card dark:border-neutral-800">
-      <div className="mb-4 flex items-baseline justify-between">
-        <p className="text-[22px]">
-          <span className="font-semibold">{formatPrice(listing.price_per_night)}</span>{" "}
-          <span className="text-base text-hof dark:text-neutral-400">{t("night")}</span>
-        </p>
-        <StarRating rating={listing.rating_avg} reviewCount={listing.review_count} />
+    <div id="reserve" className="sticky top-28 rounded-2xl border border-neutral-200 p-6 shadow-card dark:border-neutral-800">
+      {/* Real Airbnb leads with the stay total, underlined, once dates are set;
+          before that, the nightly rate and a nudge to add dates. */}
+      <div className="mb-5">
+        {nights > 0 ? (
+          <p className="text-[22px]">
+            <span className="font-semibold underline">{formatPrice(total)}</span>{" "}
+            <span className="text-base text-hof dark:text-neutral-400">{t("total")}</span>
+          </p>
+        ) : (
+          <>
+            <p className="text-[22px]">
+              <span className="font-semibold">{formatPrice(listing.price_per_night)}</span>{" "}
+              <span className="text-base text-hof dark:text-neutral-400">{t("night")}</span>
+            </p>
+            <p className="text-sm text-hof dark:text-neutral-400">{t("Add dates for prices")}</p>
+          </>
+        )}
       </div>
 
       <div className="relative rounded-xl border border-neutral-400 dark:border-neutral-600">

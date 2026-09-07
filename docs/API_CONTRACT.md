@@ -8,12 +8,12 @@ All list endpoints are paginated: `?page=1&limit=12` -> `{ items: [...], total, 
 
 ### User
 ```
-{ id, email, full_name, avatar_url, is_host, is_superhost, bio, created_at }
+{ id, email, full_name, avatar_url, is_host, is_superhost, identity_verified, bio, home_city, languages, created_at }
 ```
 
 ### Amenity
 ```
-{ id, name, icon }
+{ id, name, icon, group }
 ```
 
 ### Listing (list view / card)
@@ -28,11 +28,16 @@ All list endpoints are paginated: `?page=1&limit=12` -> `{ items: [...], total, 
 ### Listing (detail view) — adds:
 ```
 {
-  description, address, host: { id, full_name, avatar_url, is_superhost, bio, created_at },
+  description, guest_access, other_notes, address, instant_book,
+  host: { id, full_name, avatar_url, is_superhost, identity_verified, bio, home_city, languages, created_at },
+  host_years_hosting,
   photos: [{id, url, position}],
-  amenities: [{id, name, icon}],
+  amenities: [{id, name, icon, group}],                 // group = section of "Show all amenities"
   cleaning_fee, service_fee_pct,
-  blocked_dates: ["2026-09-10", "2026-09-11", ...]   // derived from confirmed bookings
+  blocked_dates: ["2026-09-10", "2026-09-11", ...],     // derived from confirmed bookings
+  highlights: [{icon, title, body}],                    // the three "Listing highlights"
+  rating_categories: [{key, label, score}],             // Cleanliness, Accuracy, Check-in, ...
+  sleeping: [{name, beds}]                              // "Where you'll sleep"
 }
 ```
 
@@ -61,7 +66,8 @@ All list endpoints are paginated: `?page=1&limit=12` -> `{ items: [...], total, 
 - `GET /amenities` -> `[{id, name, icon}]`
 
 ### Listings
-- `GET /listings` — query: `location, check_in, check_out, guests, min_price, max_price, property_type, amenities (csv of ids), page, limit` -> paginated Listing[list]
+- `GET /listings` — query: `location, check_in, check_out, guests, min_price, max_price, property_type, amenities (csv of ids), instant_book, min_bathrooms, sw_lat, sw_lng, ne_lat, ne_lng, page, limit` -> paginated Listing[list]. When all four bounds are given the map viewport is the search area and `location` is ignored ("Homes in map area").
+- `GET /listings/map` — same filters -> `[{ id, latitude, longitude, price_per_night, city }]`, up to 400 pins for everything in view (the paged search only returns one page; the map shows a price on every home).
 - `GET /listings/featured` -> `[{ title: "Popular homes in Paris", city, items: Listing[list][] }]` — homepage carousel rows, grouped by city
 - `GET /listings/{id}` -> Listing[detail]
 - `POST /listings` — auth (host) — body: title, description, property_type, bedrooms, beds, bathrooms, max_guests, price_per_night, cleaning_fee, service_fee_pct, address, city, state, country, latitude, longitude, amenity_ids[], photo_urls[]
@@ -88,6 +94,24 @@ All list endpoints are paginated: `?page=1&limit=12` -> `{ items: [...], total, 
 ### Host dashboard
 - `GET /host/dashboard` — auth (host) -> `{ listings: [...with booking_count, revenue], upcoming_bookings: [...] }`
 
+### Users
+- `GET /users/{id}` -> public profile: `UserPublic + { trips, reviews_written, months_on_platform, reviews: [{id, rating, comment, created_at, subject_kind, subject_id, subject_title, subject_city}], listings: Listing[list][] }`
+
+### Destinations (search autocomplete)
+- `GET /destinations?q=&limit=` -> Destination[]
+- `GET /destinations/nearest?lat=&lng=` -> `{ city, country, latitude, longitude, count, distance_km }` — the closest city with inventory, compared against every city (powers "Nearby").
+
+Suggestions are derived from live inventory (distinct cities and neighbourhoods that
+actually have listings), so a suggestion can never lead to an empty results page. With no
+`q`, returns the biggest cities by listing count — used for the "Popular destinations"
+chips on empty states. Matching is case-insensitive; a prefix match outranks a substring
+match, and cities outrank neighbourhoods.
+
+```
+Destination = { kind: "city" | "neighborhood", label, sublabel, city, country,
+                latitude, longitude, count }
+```
+
 ## Property types
 `entire_home | private_room | shared_room | hotel_room`
 
@@ -111,3 +135,20 @@ ExperienceCard = { id, kind, category, title, city, country, price_per_guest, pr
                    cover_photo_url, rating_avg, review_count }
 ExperienceBooking = { id, experience: ExperienceCard, date, guests_count, total_price, status, created_at }
 ```
+
+## Notes on scale
+
+The seeded database holds ~5,900 listings across ~610 cities, so the read endpoints are
+written to keep their query count flat rather than proportional to the result set:
+
+- `GET /listings` counts and pages in SQL; the `check_in`/`check_out` availability filter
+  is a `NOT EXISTS` sub-query over confirmed bookings, using the half-open interval
+  `[check_in, check_out)` — a stay that ends the day another begins does not clash.
+- Listing and experience cards are serialized in batches: one `GROUP BY` for ratings and
+  one `IN` query for wishlist state, regardless of how many cards are on the page.
+- `GET /listings/featured` and `GET /experiences/featured` accept `?rows=` (default 12,
+  max 40) and group in SQL, so they never build a row per city across the whole catalogue.
+- `GET /destinations` aggregates with `GROUP BY` and pushes the text match into the query.
+
+Destinations are keyed by city **and** country: two real cities are named Lagos, and the
+sublabel is what tells them apart.

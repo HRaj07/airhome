@@ -7,12 +7,14 @@ import type { ExperienceCard as ExperienceCardType } from "@/lib/types";
 import { KIND_PATH } from "@/lib/types";
 import { useLocale } from "@/lib/locale-context";
 
-/** "3:00 PM" -> "3pm", "12:30 PM" -> "12:30pm" (matches Airbnb's time badge). */
+/** "3:00 PM" -> "15:00" — Airbnb's experience cards use a 24-hour badge. */
 export function shortTime(t: string): string {
   const m = t.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
   if (!m) return t;
   const [, h, min, ap] = m;
-  return `${h}${min === "00" ? "" : `:${min}`}${ap.toLowerCase()}`;
+  let hour = Number(h) % 12;
+  if (ap.toUpperCase() === "PM") hour += 12;
+  return `${String(hour).padStart(2, "0")}:${min}`;
 }
 
 export default function ExperienceCard({ item, compact = false }: { item: ExperienceCardType; compact?: boolean }) {

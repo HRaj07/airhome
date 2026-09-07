@@ -11,7 +11,20 @@ export interface FilterValue {
   maxPrice: string;
   propertyType: PropertyType | "";
   amenityIds: number[];
+  /** Airbnb's "Instant Book" chip: only listings that confirm immediately. */
+  instantBook: boolean;
+  /** "1+ bathrooms" chip; 0 means no floor. */
+  minBathrooms: number;
 }
+
+export const EMPTY_FILTERS: FilterValue = {
+  minPrice: "",
+  maxPrice: "",
+  propertyType: "",
+  amenityIds: [],
+  instantBook: false,
+  minBathrooms: 0,
+};
 
 export default function FiltersModal({
   amenities,
@@ -34,7 +47,7 @@ export default function FiltersModal({
   }
 
   function clearAll() {
-    setDraft({ minPrice: "", maxPrice: "", propertyType: "", amenityIds: [] });
+    setDraft(EMPTY_FILTERS);
   }
 
   return (

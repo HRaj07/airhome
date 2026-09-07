@@ -1,23 +1,29 @@
 import datetime
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..database import get_db
 from ..deps import require_host
-from ..serializers import to_listing_card, to_booking_out
+from ..serializers import to_listing_cards, to_booking_out
 
 router = APIRouter(prefix="/host", tags=["host"])
 
 
 @router.get("/dashboard", response_model=schemas.HostDashboard)
 def dashboard(db: Session = Depends(get_db), host: models.User = Depends(require_host)):
-    listings = db.query(models.Listing).filter(models.Listing.host_id == host.id).order_by(models.Listing.id.desc()).all()
+    listings = (
+        db.query(models.Listing)
+        .options(selectinload(models.Listing.photos), selectinload(models.Listing.bookings))
+        .filter(models.Listing.host_id == host.id)
+        .order_by(models.Listing.id.desc())
+        .all()
+    )
 
+    cards = to_listing_cards(db, listings, host.id)
     listing_summaries = []
-    for l in listings:
-        card = to_listing_card(db, l, host.id)
+    for l, card in zip(listings, cards):
         confirmed = [b for b in l.bookings if b.status == models.BookingStatus.confirmed]
         revenue = round(sum(b.total_price for b in confirmed), 2)
         listing_summaries.append(

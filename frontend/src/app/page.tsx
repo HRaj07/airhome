@@ -5,6 +5,7 @@ import ListingCarousel from "@/components/ListingCarousel";
 import ExperienceCarousel from "@/components/ExperienceCarousel";
 import RowsSkeleton from "@/components/RowsSkeleton";
 import { experiencesApi, listingsApi } from "@/lib/api";
+import { getApproximateLocation } from "@/lib/geo";
 import type { ExperienceRow, FeaturedRow } from "@/lib/types";
 
 /**
@@ -19,13 +20,67 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+    // Set once a location-ranked response has been applied. The generic rows
+    // are three requests batched together while the localised ones are a
+    // single request off a cached IP lookup, so the localised answer usually
+    // arrives FIRST — without these flags the slower generic batch landed
+    // afterwards and overwrote it, which is why a reload kept showing Lagos.
+    const localised = { homes: false, experiences: false, services: false };
+
+    // Paint the generic (busiest-cities) rows straight away rather than holding
+    // the page behind a geolocation round-trip that may be waiting on a
+    // permission prompt.
     Promise.allSettled([listingsApi.featured(), experiencesApi.featured("experience"), experiencesApi.featured("service")])
       .then(([homes, exps, svcs]) => {
-        if (homes.status === "fulfilled") setHomeRows(homes.value);
-        if (exps.status === "fulfilled") setExperienceRows(exps.value);
-        if (svcs.status === "fulfilled") setServiceRows(svcs.value);
+        if (cancelled) return;
+        if (!localised.homes && homes.status === "fulfilled") setHomeRows(homes.value);
+        if (!localised.experiences && exps.status === "fulfilled") setExperienceRows(exps.value);
+        if (!localised.services && svcs.status === "fulfilled") setServiceRows(svcs.value);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    // Then localise: once we know roughly where the visitor is, swap every row
+    // set for the cities nearest them, the way the real landing page opens on
+    // somewhere you could actually drive to.
+    getApproximateLocation()
+      .then((pos) => {
+        if (!pos || cancelled) return;
+        const coords = { latitude: pos.latitude, longitude: pos.longitude };
+        listingsApi
+          .featured(coords)
+          .then((rows) => {
+            if (cancelled || !rows.length) return;
+            localised.homes = true;
+            setHomeRows(rows);
+          })
+          .catch(() => {});
+        experiencesApi
+          .featured("experience", coords)
+          .then((rows) => {
+            if (cancelled || !rows.length) return;
+            localised.experiences = true;
+            setExperienceRows(rows);
+          })
+          .catch(() => {});
+        experiencesApi
+          .featured("service", coords)
+          .then((rows) => {
+            if (cancelled || !rows.length) return;
+            localised.services = true;
+            setServiceRows(rows);
+          })
+          .catch(() => {});
+      })
+      .catch(() => {
+        // No location (denied, unavailable, offline) — the generic rows stand.
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) {

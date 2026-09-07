@@ -6,9 +6,11 @@ import ExperienceCarousel from "./ExperienceCarousel";
 import ExperienceCard from "./ExperienceCard";
 import EmptyState from "./EmptyState";
 import RowsSkeleton from "./RowsSkeleton";
-import { experiencesApi } from "@/lib/api";
+import { destinationsApi, experiencesApi } from "@/lib/api";
+import { getApproximateLocation } from "@/lib/geo";
+import Link from "next/link";
 import { fromISODate, formatShort } from "@/lib/date";
-import type { ExperienceCard as ExperienceCardType, ExperienceKind, ExperienceRow } from "@/lib/types";
+import type { Destination, ExperienceCard as ExperienceCardType, ExperienceKind, ExperienceRow } from "@/lib/types";
 
 /**
  * The Experiences and Services tabs share this component: carousel rows when
@@ -32,6 +34,7 @@ function Browser({ kind }: { kind: ExperienceKind }) {
 
   const [rows, setRows] = useState<ExperienceRow[]>([]);
   const [rowsLoading, setRowsLoading] = useState(true);
+  const [popular, setPopular] = useState<Destination[]>([]);
 
   const [results, setResults] = useState<ExperienceCardType[]>([]);
   const [total, setTotal] = useState(0);
@@ -43,13 +46,47 @@ function Browser({ kind }: { kind: ExperienceKind }) {
 
   useEffect(() => {
     if (hasSearch) return;
+    let cancelled = false;
+    // Set once the location-ranked rows are in. The localised request often
+    // beats the generic one (its IP lookup is cached), so without this flag the
+    // generic response landed second and overwrote the near-you rows.
+    let localised = false;
     setRowsLoading(true);
+
+    // Two phases, like the home page: show the generic rows immediately rather
+    // than holding the tab behind a geolocation prompt, then quietly swap in
+    // the local ones if coordinates arrive.
     experiencesApi
       .featured(kind)
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setRowsLoading(false));
+      .then((generic) => {
+        if (!cancelled && !localised) setRows(generic);
+      })
+      .catch(() => {
+        if (!cancelled && !localised) setRows([]);
+      })
+      .finally(() => {
+        if (!cancelled) setRowsLoading(false);
+      });
+
+    getApproximateLocation()
+      .then((pos) => pos && experiencesApi.featured(kind, { latitude: pos.latitude, longitude: pos.longitude }))
+      .then((localisedRows) => {
+        if (cancelled || !localisedRows || !localisedRows.length) return;
+        localised = true;
+        setRows(localisedRows);
+      })
+      .catch(() => {
+        // No location (denied, unavailable, offline) — the generic rows stand.
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [hasSearch, kind]);
+
+  useEffect(() => {
+    destinationsApi.search(undefined, 8).then(setPopular).catch(() => setPopular([]));
+  }, []);
 
   const fetchResults = useCallback(
     async (pageNum: number, replace: boolean) => {
@@ -137,7 +174,27 @@ function Browser({ kind }: { kind: ExperienceKind }) {
       </div>
 
       {!loading && results.length === 0 ? (
-        <EmptyState title="No exact matches" description="Try a different city, date or category." />
+        <div>
+          <EmptyState title="No exact matches" description="Try a different city, date or category." />
+          {popular.length > 0 && (
+            <div className="pb-8">
+              <p className="mb-3 text-center text-sm font-semibold">Popular destinations</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {popular
+                  .filter((d) => d.kind === "city")
+                  .map((d) => (
+                    <Link
+                      key={d.city}
+                      href={`${kind === "service" ? "/services" : "/experiences"}?location=${encodeURIComponent(d.city)}`}
+                      className="rounded-full border border-neutral-300 px-4 py-2 text-sm transition-colors hover:border-ink dark:border-neutral-600 dark:hover:border-white"
+                    >
+                      {d.label}
+                    </Link>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7">
           {results.map((item) => (

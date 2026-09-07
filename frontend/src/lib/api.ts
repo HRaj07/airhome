@@ -6,6 +6,7 @@ import type {
   ExperienceKind,
   ExperienceReview,
   ExperienceRow,
+  Destination,
   FeaturedRow,
   HostDashboard,
   PaginatedExperiences,
@@ -15,6 +16,9 @@ import type {
   PaginatedListings,
   Review,
   User,
+  MapPin,
+  UserProfile,
+  NearestDestination,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -86,13 +90,29 @@ export interface SearchParams {
   max_price?: number;
   property_type?: string;
   amenities?: string; // csv ids
+  instant_book?: boolean;
+  min_bathrooms?: number;
+  /** Map viewport. When set, the map is the search area ("Homes in map area"). */
+  sw_lat?: number;
+  sw_lng?: number;
+  ne_lat?: number;
+  ne_lng?: number;
   page?: number;
   limit?: number;
 }
 
-function toQueryString(params: Record<string, unknown>): string {
+export interface MapBounds {
+  sw_lat: number;
+  sw_lng: number;
+  ne_lat: number;
+  ne_lng: number;
+}
+
+// `object` rather than Record<string, unknown>: interfaces such as SearchParams
+// have no index signature, so they are not assignable to a Record.
+function toQueryString(params: object): string {
   const usp = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
+  Object.entries(params as Record<string, unknown>).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== "") usp.set(k, String(v));
   });
   const s = usp.toString();
@@ -101,7 +121,13 @@ function toQueryString(params: Record<string, unknown>): string {
 
 export const listingsApi = {
   search: (params: SearchParams) => request<PaginatedListings>(`/listings${toQueryString(params)}`),
-  featured: () => request<FeaturedRow[]>("/listings/featured"),
+  /** Lightweight pins for every match in the viewport, beyond the current page. */
+  mapPins: (params: SearchParams) => request<MapPin[]>(`/listings/map${toQueryString(params)}`),
+  /** Homepage rows. Pass coordinates to rank them by proximity to the visitor. */
+  featured: (coords?: { latitude: number; longitude: number }) =>
+    request<FeaturedRow[]>(
+      `/listings/featured${coords ? toQueryString({ lat: coords.latitude, lng: coords.longitude }) : ""}`
+    ),
   get: (id: number | string) => request<ListingDetail>(`/listings/${id}`),
   availability: (id: number | string) => request<{ blocked_dates: string[] }>(`/listings/${id}/availability`),
   mine: () => request<ListingCard[]>("/listings/mine"),
@@ -139,6 +165,21 @@ export const hostApi = {
   dashboard: () => request<HostDashboard>("/host/dashboard"),
 };
 
+// ---------- Destinations (search autocomplete) ----------
+export const usersApi = {
+  profile: (id: number | string) => request<UserProfile>(`/users/${id}`),
+  /** Edit your own profile. Send only the fields that changed. */
+  updateMe: (data: { full_name?: string; bio?: string; home_city?: string; languages?: string }) =>
+    request<User>("/users/me", { method: "PATCH", body: JSON.stringify(data) }),
+};
+
+export const destinationsApi = {
+  search: (q?: string, limit = 6) => request<Destination[]>(`/destinations${toQueryString({ q, limit })}`),
+  /** The closest city with inventory to a coordinate — for "Nearby". */
+  nearest: (latitude: number, longitude: number) =>
+    request<NearestDestination>(`/destinations/nearest${toQueryString({ lat: latitude, lng: longitude })}`),
+};
+
 // ---------- Experiences & Services ----------
 export interface ExperienceSearchParams {
   kind: ExperienceKind;
@@ -151,7 +192,14 @@ export interface ExperienceSearchParams {
 }
 
 export const experiencesApi = {
-  featured: (kind: ExperienceKind) => request<ExperienceRow[]>(`/experiences/featured?kind=${kind}`),
+  featured: (kind: ExperienceKind, coords?: { latitude: number; longitude: number }) =>
+    request<ExperienceRow[]>(
+      `/experiences/featured${toQueryString({
+        kind,
+        lat: coords?.latitude,
+        lng: coords?.longitude,
+      })}`
+    ),
   search: (params: ExperienceSearchParams) => request<PaginatedExperiences>(`/experiences${toQueryString(params)}`),
   categories: (kind: ExperienceKind) => request<string[]>(`/experiences/categories?kind=${kind}`),
   get: (id: number | string) => request<ExperienceDetail>(`/experiences/${id}`),

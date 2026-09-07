@@ -8,7 +8,10 @@ export interface User {
   avatar_url: string;
   is_host: boolean;
   is_superhost: boolean;
+  identity_verified?: boolean;
   bio: string;
+  home_city?: string;
+  languages?: string;
   created_at: string;
 }
 
@@ -16,6 +19,8 @@ export interface Amenity {
   id: number;
   name: string;
   icon: string;
+  /** Section of the "Show all amenities" modal. */
+  group?: string;
 }
 
 export interface ListingCard {
@@ -34,6 +39,9 @@ export interface ListingCard {
   latitude: number;
   longitude: number;
   cover_photo_url: string;
+  instant_book?: boolean;
+  /** First few photos, so the card can offer a swipeable gallery. */
+  photo_urls: string[];
   rating_avg: number;
   review_count: number;
   is_wishlisted: boolean;
@@ -47,13 +55,20 @@ export interface Photo {
 
 export interface ListingDetail extends ListingCard {
   description: string;
+  guest_access: string;
+  other_notes: string;
   address: string;
   cleaning_fee: number;
   service_fee_pct: number;
+  instant_book: boolean;
   host: User;
+  host_years_hosting: number;
   photos: Photo[];
   amenities: Amenity[];
   blocked_dates: string[];
+  highlights: ListingHighlight[];
+  rating_categories: RatingCategory[];
+  sleeping: SleepingArea[];
 }
 
 export interface PaginatedListings {
@@ -130,6 +145,9 @@ export interface ListingFormData {
   country: string;
   latitude: number;
   longitude: number;
+  instant_book?: boolean;
+  guest_access?: string;
+  other_notes?: string;
   amenity_ids: number[];
   photo_urls: string[];
 }
@@ -196,6 +214,8 @@ export interface ExperienceDetail extends ExperienceCard {
 export interface ExperienceRow {
   title: string;
   key: string;
+  /** What `key` holds, so the row links to the filter that matches it. */
+  key_type?: "city" | "category";
   items: ExperienceCard[];
 }
 
@@ -222,3 +242,67 @@ export const KIND_PATH: Record<ExperienceKind, string> = {
   experience: "/experiences",
   service: "/services",
 };
+
+export interface MapPin {
+  id: number;
+  latitude: number;
+  longitude: number;
+  price_per_night: number;
+  city: string;
+}
+
+export interface ProfileReview {
+  id: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+  subject_kind: "listing" | "experience" | string;
+  subject_id: number;
+  subject_title: string;
+  subject_city: string;
+}
+
+export interface UserProfile extends User {
+  trips: number;
+  reviews_written: number;
+  months_on_platform: number;
+  reviews: ProfileReview[];
+  listings: ListingCard[];
+}
+
+export interface ListingHighlight {
+  icon: string;
+  title: string;
+  body: string;
+}
+
+export interface RatingCategory {
+  key: string;
+  label: string;
+  score: number;
+}
+
+export interface SleepingArea {
+  name: string;
+  beds: string;
+}
+
+export interface NearestDestination {
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  count: number;
+  distance_km: number;
+}
+
+export interface Destination {
+  kind: "city" | "neighborhood" | string;
+  label: string;
+  sublabel: string;
+  city: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  count: number;
+}

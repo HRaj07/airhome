@@ -2,68 +2,172 @@ import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models, schemas
 from ..database import get_db
+from ..rows import CANDIDATE_FACTOR, distinct_cards
 from ..deps import get_current_user, get_current_user_optional, require_host
-from ..serializers import to_listing_card, to_listing_detail
-from ..utils import booking_overlaps
+from ..serializers import to_listing_card, to_listing_cards, to_listing_detail
+from ..utils import booking_overlaps, haversine_km
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
 
+class SearchFilters:
+    """Every filter the results page can apply, shared by the paged search and
+    the map endpoint so the pins always agree with the list."""
+
+    def __init__(
+        self,
+        location: Optional[str] = None,
+        check_in: Optional[datetime.date] = None,
+        check_out: Optional[datetime.date] = None,
+        guests: Optional[int] = None,
+        min_price: Optional[float] = None,
+        max_price: Optional[float] = None,
+        property_type: Optional[models.PropertyType] = None,
+        amenities: Optional[str] = Query(None, description="csv of amenity ids"),
+        instant_book: Optional[bool] = None,
+        min_bathrooms: Optional[float] = None,
+        # Map viewport. When all four are given, the location text is ignored
+        # and the map is the search area — Airbnb's "Homes in map area".
+        sw_lat: Optional[float] = None,
+        sw_lng: Optional[float] = None,
+        ne_lat: Optional[float] = None,
+        ne_lng: Optional[float] = None,
+    ):
+        self.location = location
+        self.check_in = check_in
+        self.check_out = check_out
+        self.guests = guests
+        self.min_price = min_price
+        self.max_price = max_price
+        self.property_type = property_type
+        self.amenities = amenities
+        self.instant_book = instant_book
+        self.min_bathrooms = min_bathrooms
+        self.bounds = (
+            (sw_lat, sw_lng, ne_lat, ne_lng)
+            if None not in (sw_lat, sw_lng, ne_lat, ne_lng)
+            else None
+        )
+
+    def apply(self, q):
+        f = self
+        if f.bounds:
+            sw_lat, sw_lng, ne_lat, ne_lng = f.bounds
+            q = q.filter(
+                models.Listing.latitude >= sw_lat,
+                models.Listing.latitude <= ne_lat,
+                models.Listing.longitude >= sw_lng,
+                models.Listing.longitude <= ne_lng,
+            )
+        elif f.location:
+            like = f"%{f.location}%"
+            q = q.filter(
+                or_(
+                    models.Listing.city.ilike(like),
+                    models.Listing.country.ilike(like),
+                    models.Listing.state.ilike(like),
+                    models.Listing.neighborhood.ilike(like),
+                )
+            )
+        if f.guests:
+            q = q.filter(models.Listing.max_guests >= f.guests)
+        if f.min_price is not None:
+            q = q.filter(models.Listing.price_per_night >= f.min_price)
+        if f.max_price is not None:
+            q = q.filter(models.Listing.price_per_night <= f.max_price)
+        if f.property_type:
+            q = q.filter(models.Listing.property_type == f.property_type)
+        if f.instant_book:
+            q = q.filter(models.Listing.instant_book.is_(True))
+        if f.min_bathrooms:
+            q = q.filter(models.Listing.bathrooms >= f.min_bathrooms)
+        if f.amenities:
+            for a in f.amenities.split(","):
+                if a.strip().isdigit():
+                    q = q.filter(models.Listing.amenities.any(models.Amenity.id == int(a)))
+
+        if f.check_in and f.check_out:
+            if f.check_out <= f.check_in:
+                raise HTTPException(status_code=400, detail="check_out must be after check_in")
+            # Availability as a NOT EXISTS rather than a Python filter, so the
+            # database still does the counting and the paging. Half-open interval:
+            # a stay ending the day another begins does not overlap.
+            clash = (
+                select(models.Booking.id)
+                .where(
+                    models.Booking.listing_id == models.Listing.id,
+                    models.Booking.status == models.BookingStatus.confirmed,
+                    models.Booking.check_in < f.check_out,
+                    models.Booking.check_out > f.check_in,
+                )
+                .exists()
+            )
+            q = q.filter(~clash)
+        return q
+
+
 @router.get("", response_model=schemas.PaginatedListings)
 def search_listings(
-    location: Optional[str] = None,
-    check_in: Optional[datetime.date] = None,
-    check_out: Optional[datetime.date] = None,
-    guests: Optional[int] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
-    property_type: Optional[models.PropertyType] = None,
-    amenities: Optional[str] = None,  # csv of amenity ids
+    filters: SearchFilters = Depends(),
     page: int = Query(1, ge=1),
     limit: int = Query(12, ge=1, le=50),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user_optional),
 ):
-    q = db.query(models.Listing)
+    q = filters.apply(db.query(models.Listing))
 
-    if location:
-        like = f"%{location}%"
-        q = q.filter(or_(models.Listing.city.ilike(like), models.Listing.country.ilike(like), models.Listing.state.ilike(like)))
-    if guests:
-        q = q.filter(models.Listing.max_guests >= guests)
-    if min_price is not None:
-        q = q.filter(models.Listing.price_per_night >= min_price)
-    if max_price is not None:
-        q = q.filter(models.Listing.price_per_night <= max_price)
-    if property_type:
-        q = q.filter(models.Listing.property_type == property_type)
+    # Count and page in SQL. Materialising every match to slice it in Python
+    # meant an unfiltered search loaded the whole table on every request.
+    total = q.order_by(None).with_entities(func.count(models.Listing.id)).scalar() or 0
+    offset = (page - 1) * limit
+    page_items = (
+        q.options(selectinload(models.Listing.photos))
+        .order_by(models.Listing.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
-    amenity_ids: List[int] = []
-    if amenities:
-        amenity_ids = [int(a) for a in amenities.split(",") if a.strip().isdigit()]
-        for aid in amenity_ids:
-            q = q.filter(models.Listing.amenities.any(models.Amenity.id == aid))
+    items = to_listing_cards(db, page_items, current_user.id if current_user else None)
+    return schemas.PaginatedListings(
+        items=items, total=total, page=page, limit=limit, has_more=offset + len(page_items) < total
+    )
 
-    all_matching = q.order_by(models.Listing.id.desc()).all()
 
-    if check_in and check_out:
-        if check_out <= check_in:
-            raise HTTPException(status_code=400, detail="check_out must be after check_in")
-        all_matching = [l for l in all_matching if not booking_overlaps(check_in, check_out, l.id, db)]
+#: The most pins one map request returns. Past this the map is zoomed out far
+#: enough that the pins would overlap anyway.
+MAP_PIN_LIMIT = 400
 
-    total = len(all_matching)
-    start = (page - 1) * limit
-    end = start + limit
-    page_items = all_matching[start:end]
 
-    items = [to_listing_card(db, l, current_user.id if current_user else None) for l in page_items]
-    return schemas.PaginatedListings(items=items, total=total, page=page, limit=limit, has_more=end < total)
+@router.get("/map", response_model=List[schemas.MapPin])
+def map_pins(filters: SearchFilters = Depends(), db: Session = Depends(get_db)):
+    """Every listing matching the current search inside the map viewport, as
+    lightweight pins. The paged search only returns one page; the real map
+    shows a price on every home in view, so it needs its own, cheaper query."""
+    rows = (
+        filters.apply(
+            db.query(
+                models.Listing.id, models.Listing.latitude, models.Listing.longitude,
+                models.Listing.price_per_night, models.Listing.city,
+            )
+        )
+        .order_by(models.Listing.id.desc())
+        .limit(MAP_PIN_LIMIT)
+        .all()
+    )
+    return [
+        schemas.MapPin(id=i, latitude=lat, longitude=lng, price_per_night=p, city=c)
+        for i, lat, lng, p, c in rows
+    ]
 
+
+#: Cards per homepage carousel row.
+PER_ROW = 12
 
 ROW_TITLES = [
     "Popular homes in {city}",
@@ -73,36 +177,117 @@ ROW_TITLES = [
     "Places to stay in {city}",
 ]
 
+# Used for cities close to the visitor, so the top of the page reads like
+# somewhere they could actually drive to tonight.
+NEAR_ROW_TITLES = [
+    "Stay near {city}",
+    "Homes near you in {city}",
+    "Popular homes in {city}",
+    "Available in {city} this weekend",
+]
+
+# A city within this radius counts as "near you" for the row heading.
+NEAR_RADIUS_KM = 400
+
 
 @router.get("/featured", response_model=List[schemas.FeaturedRow])
 def featured_rows(
+    rows: int = Query(12, ge=1, le=40, description="How many city rows to build"),
+    lat: Optional[float] = Query(None, ge=-90, le=90, description="Visitor latitude, to rank rows by proximity"),
+    lng: Optional[float] = Query(None, ge=-180, le=180, description="Visitor longitude, to rank rows by proximity"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user_optional),
 ):
-    """Homepage carousel rows: listings grouped by city, largest groups first."""
-    listings = db.query(models.Listing).order_by(models.Listing.id.asc()).all()
-    by_city: dict[str, list[models.Listing]] = {}
-    for l in listings:
-        by_city.setdefault(l.city, []).append(l)
+    """Homepage carousel rows: one row per city.
 
-    ordered = sorted(by_city.items(), key=lambda kv: (-len(kv[1]), kv[0]))
-    user_id = current_user.id if current_user else None
-    rows = []
-    for i, (city, group) in enumerate(ordered):
-        rows.append(
+    Without coordinates, rows are the busiest cities — the generic landing page.
+    With them, cities are ranked by how close they are to the visitor, so
+    someone in Mumbai opens the page to Mumbai rather than Lagos. Only a handful
+    of rows are built either way: the catalogue has ~500 cities, and serializing
+    every one would mean thousands of cards for a page that shows a dozen.
+    """
+    distances: dict[str, float] = {}
+    if lat is not None and lng is not None:
+        # Rank every city with inventory by distance, not just the busiest ones:
+        # with the headline cities tied on listing count, nearest-of-the-top-20
+        # sent someone in Delhi to Agra.
+        city_coords = (
+            db.query(
+                models.Listing.city,
+                func.avg(models.Listing.latitude),
+                func.avg(models.Listing.longitude),
+            )
+            .group_by(models.Listing.city)
+            .all()
+        )
+        ranked = sorted(
+            ((c, haversine_km(lat, lng, clat or 0.0, clng or 0.0)) for c, clat, clng in city_coords),
+            key=lambda pair: pair[1],
+        )[:rows]
+        top_cities = [c for c, _ in ranked]
+        distances = dict(ranked)
+    else:
+        top_cities = [
+            row[0]
+            for row in db.query(models.Listing.city, func.count(models.Listing.id).label("n"))
+            .group_by(models.Listing.city)
+            .order_by(func.count(models.Listing.id).desc(), models.Listing.city.asc())
+            .limit(rows)
+            .all()
+        ]
+    if not top_cities:
+        return []
+
+    listings = (
+        db.query(models.Listing)
+        .options(selectinload(models.Listing.photos))
+        .filter(models.Listing.city.in_(top_cities))
+        .order_by(models.Listing.id.asc())
+        .all()
+    )
+    by_city: dict[str, list[models.Listing]] = {c: [] for c in top_cities}
+    for l in listings:
+        group = by_city.get(l.city)
+        # Over-gather: the row is de-duplicated below, so it needs spares.
+        if group is not None and len(group) < PER_ROW * CANDIDATE_FACTOR:
+            group.append(l)
+
+    # One batch serialization for every row's cards together.
+    flat = [l for city in top_cities for l in by_city[city]]
+    cards = {c.id: c for c in to_listing_cards(db, flat, current_user.id if current_user else None)}
+
+    out = []
+    # Shared across every row, so a photo used in the Delhi row can't reappear
+    # in the Noida row directly below it.
+    used_photos: set = set()
+    for i, city in enumerate(top_cities):
+        items = distinct_cards(
+            [cards[l.id] for l in by_city[city]],
+            PER_ROW,
+            title_of=lambda c: c.title,
+            photo_of=lambda c: c.cover_photo_url or "",
+            used_photos=used_photos,
+        )
+        if not items:
+            continue
+        out.append(
             schemas.FeaturedRow(
-                title=ROW_TITLES[i % len(ROW_TITLES)].format(city=city),
+                title=(
+                    NEAR_ROW_TITLES[i % len(NEAR_ROW_TITLES)]
+                    if distances.get(city, float("inf")) <= NEAR_RADIUS_KM
+                    else ROW_TITLES[i % len(ROW_TITLES)]
+                ).format(city=city),
                 city=city,
-                items=[to_listing_card(db, l, user_id) for l in group[:12]],
+                items=items,
             )
         )
-    return rows
+    return out
 
 
 @router.get("/mine", response_model=List[schemas.ListingCard])
 def my_listings(db: Session = Depends(get_db), host: models.User = Depends(require_host)):
     listings = db.query(models.Listing).filter(models.Listing.host_id == host.id).order_by(models.Listing.id.desc()).all()
-    return [to_listing_card(db, l, host.id) for l in listings]
+    return to_listing_cards(db, listings, host.id)
 
 
 @router.get("/{listing_id}", response_model=schemas.ListingDetail)
@@ -140,6 +325,9 @@ def _apply_listing_fields(listing: models.Listing, payload: schemas.ListingCreat
     listing.country = payload.country
     listing.latitude = payload.latitude
     listing.longitude = payload.longitude
+    listing.instant_book = payload.instant_book
+    listing.guest_access = payload.guest_access
+    listing.other_notes = payload.other_notes
 
     if payload.amenity_ids:
         listing.amenities = db.query(models.Amenity).filter(models.Amenity.id.in_(payload.amenity_ids)).all()

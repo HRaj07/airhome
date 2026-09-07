@@ -36,10 +36,12 @@ export const emptyListingForm = (): ListingFormData => ({
   latitude: 0,
   longitude: 0,
   amenity_ids: [],
+  // Placeholders for a brand-new listing: a home, a living room and a bedroom,
+  // so an unedited draft still looks like somewhere you could stay.
   photo_urls: [
-    "https://picsum.photos/seed/new-listing-1/1024/768",
-    "https://picsum.photos/seed/new-listing-2/1024/768",
-    "https://picsum.photos/seed/new-listing-3/1024/768",
+    "https://images.pexels.com/photos/1974596/pexels-photo-1974596.jpeg?auto=compress&cs=tinysrgb&w=1024&h=768&fit=crop",
+    "https://images.pexels.com/photos/276746/pexels-photo-276746.jpeg?auto=compress&cs=tinysrgb&w=1024&h=768&fit=crop",
+    "https://images.pexels.com/photos/11036444/pexels-photo-11036444.jpeg?auto=compress&cs=tinysrgb&w=1024&h=768&fit=crop",
   ],
 });
 

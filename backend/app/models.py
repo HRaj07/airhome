@@ -1,34 +1,15 @@
 import datetime
-import enum
 
 from sqlalchemy import (
-    Column, Integer, String, Float, Boolean, DateTime, Date, ForeignKey, Text,
+    Column, Integer, String, Float, Boolean, DateTime, Date, ForeignKey, Index, Text,
     Table, UniqueConstraint, Enum as SAEnum
 )
 from sqlalchemy.orm import relationship
 
 from .database import Base
-
-
-class PropertyType(str, enum.Enum):
-    entire_home = "entire_home"
-    private_room = "private_room"
-    shared_room = "shared_room"
-    hotel_room = "hotel_room"
-
-
-class BookingStatus(str, enum.Enum):
-    confirmed = "confirmed"
-    cancelled = "cancelled"
-
-
-class ExperienceKind(str, enum.Enum):
-    """Experiences are hosted activities (food tours, workshops...); services are
-    bookable professionals (photographers, trainers, chefs...). They share one
-    table because the booking model — a date, a headcount, a per-guest price —
-    is identical; `kind` drives which tab they appear under."""
-    experience = "experience"
-    service = "service"
+# Re-exported so callers keep using models.PropertyType etc.; the definitions
+# live in enums.py so sqlalchemy-free code can import them.
+from .enums import BookingStatus, ExperienceKind, PropertyType  # noqa: F401
 
 
 listing_amenities = Table(
@@ -48,8 +29,12 @@ class User(Base):
     full_name = Column(String, nullable=False)
     avatar_url = Column(String, default="")
     bio = Column(Text, default="")
+    # Shown on the public profile ("Roopali · Noida, India · Speaks English and Hindi").
+    home_city = Column(String, default="")
+    languages = Column(String, default="English")
     is_host = Column(Boolean, default=False)
     is_superhost = Column(Boolean, default=False)
+    identity_verified = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     listings = relationship("Listing", back_populates="host", cascade="all, delete-orphan")
@@ -64,22 +49,29 @@ class Listing(Base):
     __tablename__ = "listings"
 
     id = Column(Integer, primary_key=True, index=True)
-    host_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    host_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String, nullable=False)
     description = Column(Text, default="")
-    property_type = Column(SAEnum(PropertyType), default=PropertyType.entire_home)
+    property_type = Column(SAEnum(PropertyType), default=PropertyType.entire_home, index=True)
     bedrooms = Column(Integer, default=1)
     beds = Column(Integer, default=1)
     bathrooms = Column(Float, default=1.0)
     max_guests = Column(Integer, default=2)
-    price_per_night = Column(Float, nullable=False)
+    price_per_night = Column(Float, nullable=False, index=True)
     cleaning_fee = Column(Float, default=0.0)
     service_fee_pct = Column(Float, default=0.12)
+    # Airbnb's "Instant Book": confirm without waiting for the host. A filter chip.
+    instant_book = Column(Boolean, default=True, index=True)
+    # Free-text sections of the listing page, as on the real one.
+    guest_access = Column(Text, default="")
+    other_notes = Column(Text, default="")
     address = Column(String, default="")
-    neighborhood = Column(String, default="")
+    # Indexed because search filters and the destination aggregation both hit
+    # these columns on every request, over ~5,000 rows.
+    neighborhood = Column(String, default="", index=True)
     city = Column(String, nullable=False, index=True)
-    state = Column(String, default="")
-    country = Column(String, default="")
+    state = Column(String, default="", index=True)
+    country = Column(String, default="", index=True)
     latitude = Column(Float, default=0.0)
     longitude = Column(Float, default=0.0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -97,7 +89,7 @@ class ListingPhoto(Base):
     __tablename__ = "listing_photos"
 
     id = Column(Integer, primary_key=True, index=True)
-    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
+    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False, index=True)
     url = Column(String, nullable=False)
     position = Column(Integer, default=0)
 
@@ -110,18 +102,23 @@ class Amenity(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     icon = Column(String, default="check")
+    # Section of the "Show all amenities" modal: Essentials, Kitchen and dining...
+    group = Column(String, default="Essentials")
 
     listings = relationship("Listing", secondary=listing_amenities, back_populates="amenities")
 
 
 class Booking(Base):
     __tablename__ = "bookings"
+    __table_args__ = (Index("ix_bookings_listing_dates", "listing_id", "check_in", "check_out"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
-    guest_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    check_in = Column(Date, nullable=False)
-    check_out = Column(Date, nullable=False)
+    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False, index=True)
+    guest_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # The availability check filters on listing + both dates together, so give
+    # it a composite index (see __table_args__ below) as well as these.
+    check_in = Column(Date, nullable=False, index=True)
+    check_out = Column(Date, nullable=False, index=True)
     guests_count = Column(Integer, default=1)
     subtotal = Column(Float, nullable=False)
     cleaning_fee = Column(Float, default=0.0)
@@ -139,9 +136,9 @@ class Review(Base):
     __tablename__ = "reviews"
 
     id = Column(Integer, primary_key=True, index=True)
-    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
+    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False, index=True)
     booking_id = Column(Integer, ForeignKey("bookings.id", ondelete="SET NULL"), nullable=True)
-    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     rating = Column(Integer, nullable=False)
     comment = Column(Text, default="")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -175,7 +172,7 @@ class Experience(Base):
     title = Column(String, nullable=False)
     description = Column(Text, default="")
     city = Column(String, nullable=False, index=True)
-    country = Column(String, default="")
+    country = Column(String, default="", index=True)
     latitude = Column(Float, default=0.0)
     longitude = Column(Float, default=0.0)
     price_per_guest = Column(Float, nullable=False)
@@ -195,7 +192,7 @@ class ExperiencePhoto(Base):
     __tablename__ = "experience_photos"
 
     id = Column(Integer, primary_key=True, index=True)
-    experience_id = Column(Integer, ForeignKey("experiences.id", ondelete="CASCADE"), nullable=False)
+    experience_id = Column(Integer, ForeignKey("experiences.id", ondelete="CASCADE"), nullable=False, index=True)
     url = Column(String, nullable=False)
     position = Column(Integer, default=0)
 
@@ -206,9 +203,9 @@ class ExperienceBooking(Base):
     __tablename__ = "experience_bookings"
 
     id = Column(Integer, primary_key=True, index=True)
-    experience_id = Column(Integer, ForeignKey("experiences.id", ondelete="CASCADE"), nullable=False)
-    guest_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    date = Column(Date, nullable=False)
+    experience_id = Column(Integer, ForeignKey("experiences.id", ondelete="CASCADE"), nullable=False, index=True)
+    guest_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
     guests_count = Column(Integer, default=1)
     total_price = Column(Float, nullable=False)
     status = Column(SAEnum(BookingStatus), default=BookingStatus.confirmed)
@@ -222,8 +219,8 @@ class ExperienceReview(Base):
     __tablename__ = "experience_reviews"
 
     id = Column(Integer, primary_key=True, index=True)
-    experience_id = Column(Integer, ForeignKey("experiences.id", ondelete="CASCADE"), nullable=False)
-    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    experience_id = Column(Integer, ForeignKey("experiences.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     rating = Column(Integer, nullable=False)
     comment = Column(Text, default="")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)

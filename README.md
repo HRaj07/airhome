@@ -26,9 +26,30 @@ fullstack assignment.
   Overlapping pins merge into "N homes" cluster pins that zoom in on click, and the
   filter-chip row stays pinned under the header while you scroll. The filters modal
   covers price range, property type and amenities.
+- **Destination autocomplete** — typing in "Where" queries `GET /api/destinations`, which
+  builds its suggestions from the cities and neighbourhoods that actually have listings.
+  A suggestion therefore can never lead to an empty results page, and a search for
+  "Sector 75" or "Bandra" resolves to the right neighbourhood. Empty results pages offer
+  "Popular destinations" chips from the same endpoint instead of a dead end.
 - **Nearby search** — the Where dropdown has a "Nearby" option that uses the browser's
-  Geolocation API and jumps to the closest destination with inventory (the app only has
-  listings in eight cities, so it tells you how far away that city is).
+  Geolocation API; the server compares your position against every city with inventory
+  and returns the closest one, telling you how far away it is.
+- **The map is the search area.** Pan or zoom the results map and the list follows it
+  ("Homes in map area"), with a price pin on every home in view — not just the current
+  page — and clusters where pins would overlap. "Search as I move the map" can be turned
+  off, in which case a "Search this area" button appears instead. The viewport is written
+  to the URL so back/refresh keep it.
+- **Listing page** in the real page's shape: title with Share/Save, the five-photo grid,
+  "Entire home in Noida, India · 3 guests · 1 bedroom · 1 bed · 1 bathroom", the Guest
+  favourite banner, "Hosted by Deeksha — Superhost · 1 year hosting", three Listing
+  highlights, description with Guest access and Other things to note, Where you'll sleep,
+  What this place offers with a "Show all 37 amenities" modal grouped by section, a
+  two-month calendar, reviews with the six category scores and "Show all N reviews", Where
+  you'll be, Meet your host, Things to know, and a sticky Photos · Amenities · Reviews ·
+  Location / Reserve bar once the gallery scrolls away.
+- **Profiles** — every reviewer's name and photo links to `/users/[id]`: photo, name,
+  home city, Trips / Reviews / Years on airhome, "About", the reviews they've written, and
+  a host's listings.
 - **Experiences & Services** — fully bookable, not placeholders. Experiences are hosted
   activities at a fixed daily start time (time badge on the card, "From ₹3,700 / guest ·
   ★5.0"); services are professionals booked per guest or per group. Each has a detail
@@ -36,9 +57,6 @@ fullstack assignment.
   with spots left (per-date capacity is enforced server-side), a guest picker capped at
   the remaining spots, a mocked checkout, a confirmation screen, and cancellation from
   My Trips. Services can be searched by type (Photography, Training, Chefs, ...).
-- **Listing detail page** — photo gallery with a full-screen lightbox, description,
-  amenities, host info card (with Superhost badge), an embedded map, an availability
-  calendar that blocks already-booked dates, a price breakdown, and a reviews section.
 - **Booking flow** — date range + guest count selection with validation (no overlapping
   or unavailable dates, guest count capped at the listing's max), a summary/checkout page
   with a mocked payment form, and a confirmation screen. Confirmed bookings persist and
@@ -69,9 +87,33 @@ fullstack assignment.
   original" note) — see `src/lib/i18n.ts`.
 - **Toasts / notifications**, **dark mode toggle** (in the hamburger menu), and a **fully
   responsive** layout (mobile, tablet, desktop).
-- **Seed data** — 5 hosts, 4 guests, 48 listings across 8 cities (6 neighbourhoods per
-  city, each with 4-6 photos and 5-10 amenities), ~56 experiences and 42 services with
-  reviews, and a mix of completed and upcoming bookings for all three.
+- **Footer, Help Centre and info pages** match the real site: "Inspiration for future
+  getaways" (six tabs of destinations, all of which have inventory), Support / Hosting /
+  airhome link columns, and a legal bar — with every link resolving to a real page
+  (`/info/[slug]`: airCover, Anti-discrimination, Cancellation options, Hosting
+  resources, Newsroom, Privacy, Terms, …). The Help Centre has role tabs (Guest, Home
+  host, Experience host, Service host, Travel admin), a "We're here for you" login card,
+  getting-started guides and top articles.
+- **Gift cards** (`/gift-cards`) — buy flow with amount chips, recipient, message and a
+  live card preview, plus a redeem form. Checkout is mocked like the rest of payments.
+- **Log in or sign up modal** — the header opens Airbnb's three-step modal (identify →
+  password → register) with mocked Google/Apple buttons and one-click demo accounts,
+  rather than navigating away to a separate page.
+- **Seed data — a marketplace, not a sample.** ~610 real cities with real coordinates,
+  ~5,900 listings, ~2,500 experiences and services, ~24,000 photos, ~16,000 reviews and
+  ~4,000 bookings, owned by ~80 hosts and reviewed by ~50 guests. Together the cities and
+  their neighbourhoods make **~3,560 searchable destinations**, so autocomplete has real
+  depth and any city a reviewer types resolves to inventory.
+
+  India is deliberately over-represented (220+ cities, from the metros down to Kasol,
+  Hampi and Havelock): the demo is browsed from India, and a marketplace that returns
+  nothing for "Indore" reads as broken. Listings carry 12–25 of a 44-amenity catalogue in
+  Airbnb's wording, an Instant Book flag, guest-access and house-note text; reviewers have
+  home cities, languages and join dates spread over ten years, and reviews are dated over
+  two years so the page reads "1 week ago … 2 years ago". The ~100 headline cities carry hand-written real
+  neighbourhoods (Bandra West, Koramangala, Le Marais, Shibuya); the long tail derives
+  plausible locality names by country — noted here rather than passed off as researched.
+  The catalogue is `backend/app/cities.py`.
 
 ### Mocked / placeholder, as scoped by the assignment
 - **Payments** — the checkout screen collects mock card details and never contacts a real
@@ -98,12 +140,17 @@ airbnb-clone/
 │   │   ├── database.py      Engine/session setup (SQLite)
 │   │   ├── auth.py          Password hashing + JWT
 │   │   ├── deps.py          FastAPI auth dependencies
-│   │   ├── serializers.py   ORM -> API response shaping (ratings, blocked dates, etc.)
+│   │   ├── serializers.py   ORM -> API response shaping (batched ratings, blocked dates)
+│   │   ├── enums.py         Domain enums, free of SQLAlchemy so pure code can import them
+│   │   ├── cities.py        The ~509-city destination catalogue
+│   │   ├── seed_data.py     What the seed writes, as plain dicts (no DB imports)
 │   │   ├── pricing.py       Pure pricing/date-overlap math (unit tested, zero deps)
 │   │   ├── utils.py         Shared query helpers (booking overlap check)
 │   │   ├── seed.py          Seeds the DB with demo hosts/guests/listings/bookings
 │   │   └── routers/         auth, listings, bookings, reviews, wishlist, amenities, host
-│   ├── tests/test_pricing.py  Standalone unit tests (no pytest/deps required)
+│   ├── tests/                 Standalone unit tests (no pytest/deps required)
+│   │   ├── test_pricing.py    Pricing + booking-overlap logic
+│   │   └── test_seed_data.py  The whole seed generation, without a database
 │   └── requirements.txt
 ├── frontend/                 Next.js 14 (App Router) + TypeScript + Tailwind
 │   └── src/
@@ -199,6 +246,7 @@ calendar/availability table) in sync.
 | `/experiences/[id]`, `/services/[id]` | Detail page with date/guest picker |
 | `/experiences/[id]/book`, `/services/[id]/book` | Mocked checkout + confirmation |
 | `/help`, `/refer`, `/co-host` | Help Centre (searchable FAQ), referral link + invites, co-host directory |
+| `/gift-cards` | Buy a gift card (amount, recipient, message, live preview) + redeem |
 | `/listing/[id]` | Listing detail: gallery, amenities, host, map, calendar, reviews |
 | `/booking/[listingId]?check_in=&check_out=&guests=` | Booking summary + mocked checkout |
 | `/trips` | My Trips (guest) |
@@ -222,6 +270,25 @@ Full endpoint-by-endpoint reference (request/response shapes) is in
 | Reviews | `GET/POST /api/listings/{id}/reviews` |
 | Wishlist | `GET /api/wishlist`, `POST/DELETE /api/wishlist/{listing_id}` |
 | Host | `GET /api/host/dashboard` |
+| Destinations | `GET /api/destinations?q=` (autocomplete from live inventory), `GET /api/destinations/nearest?lat=&lng=` (closest city with inventory, for "Nearby") |
+| Map | `GET /api/listings/map` (price pins for every match in the viewport; `/listings` accepts the same `sw_lat/sw_lng/ne_lat/ne_lng` bounds so the list follows the map) |
+| Users | `GET /api/users/{id}` (public profile: stats, reviews written, listings) |
+
+**Performance note.** At this data size the naive shapes stop working, so the read paths
+were rewritten to keep query counts flat:
+
+- `GET /listings` counts and pages **in SQL**, and applies the date-availability filter as
+  a `NOT EXISTS` sub-query. It previously materialised every match to slice it in Python,
+  which meant an unfiltered search loaded all ~4,900 rows on every request.
+- Cards are serialized in batches: ratings come from one `GROUP BY` and wishlist state
+  from one `IN` query, instead of two queries per card (`serializers.to_listing_cards`).
+- `GET /listings/featured` and `GET /experiences/featured` group in SQL and build only the
+  rows the page shows (12 by default, `?rows=` to change), rather than one row per city
+  across the whole catalogue.
+- `GET /destinations` aggregates cities and neighbourhoods with `GROUP BY` and pushes the
+  text match into the same query.
+- The columns all of this filters and groups on are indexed, including a composite
+  `(listing_id, check_in, check_out)` index for the availability check.
 | Experiences & Services | `GET /api/experiences/featured?kind=`, `GET /api/experiences?kind=&location=&category=&date=&guests=`, `GET /api/experiences/categories?kind=`, `GET /api/experiences/{id}`, `POST /api/experiences/{id}/bookings`, `POST /api/experiences/{id}/reviews`, `GET /api/experiences/bookings/mine`, `DELETE /api/experiences/bookings/{id}` |
 
 Auth is a JWT bearer token (`Authorization: Bearer <token>`), issued at register/login.
@@ -279,8 +346,10 @@ Visit `http://localhost:3000`.
 ### Running the unit tests
 
 ```bash
-# Backend — pure pricing/date-overlap logic, stdlib only
-cd backend && python3 tests/test_pricing.py
+# Backend — stdlib only, no database or pytest needed
+cd backend
+python3 tests/test_pricing.py      # pricing + booking-overlap logic
+python3 tests/test_seed_data.py    # the catalogue and every seed row builder
 
 # Frontend — pure calendar/date and geo logic, run directly with tsx (no test runner needed)
 cd frontend && npx tsx src/lib/date.test.ts && npx tsx src/lib/geo.test.ts && npx tsx src/lib/i18n.test.ts

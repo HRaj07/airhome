@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { CheckCircle2, CreditCard } from "lucide-react";
+import { CheckCircle2, CreditCard, Smartphone, Wallet } from "lucide-react";
 import PriceBreakdown from "@/components/PriceBreakdown";
 import { bookingsApi, listingsApi, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -11,6 +11,21 @@ import { useToast } from "@/lib/toast-context";
 import { useLocale } from "@/lib/locale-context";
 import { fromISODate, nightsBetween, formatShort } from "@/lib/date";
 import type { Booking, ListingDetail } from "@/lib/types";
+
+type PaymentMethod = "card" | "upi" | "paypal" | "google_pay" | "apple_pay";
+
+/** Mocked payment methods, in the order the real checkout lists them. Card
+ *  stays the pre-selected default; UPI is included since most of the seeded
+ *  inventory and demo accounts are India-focused. */
+const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: typeof CreditCard }[] = [
+  { id: "card", label: "Credit or debit card", icon: CreditCard },
+  { id: "upi", label: "UPI", icon: Smartphone },
+  { id: "paypal", label: "PayPal", icon: Wallet },
+  { id: "google_pay", label: "Google Pay", icon: Wallet },
+  { id: "apple_pay", label: "Apple Pay", icon: Wallet },
+];
+
+const UPI_ID_RE = /^[\w.\-]{2,}@[a-zA-Z]{2,}$/;
 
 export default function BookingPage() {
   const params = useParams();
@@ -30,6 +45,8 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
   const [card, setCard] = useState({ number: "", expiry: "", cvc: "", name: "" });
+  const [payMethod, setPayMethod] = useState<PaymentMethod>("card");
+  const [upiId, setUpiId] = useState("");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -60,11 +77,18 @@ export default function BookingPage() {
   }, [listing, nights]);
 
   const cardValid = card.number.replace(/\s/g, "").length >= 12 && card.expiry.length >= 4 && card.cvc.length >= 3 && card.name.trim().length > 1;
+  const upiValid = UPI_ID_RE.test(upiId.trim());
+  // Card and UPI collect mock details to validate; the redirect-style methods
+  // (PayPal, Google Pay, Apple Pay) have nothing to fill in, so picking one is enough.
+  const payValid = payMethod === "card" ? cardValid : payMethod === "upi" ? upiValid : true;
 
   async function handleConfirm() {
     if (!listing || !checkIn || !checkOut) return;
-    if (!cardValid) {
-      showToast("Please fill in mock payment details to continue", "info");
+    if (!payValid) {
+      showToast(
+        payMethod === "upi" ? "Please enter a valid UPI ID to continue" : "Please fill in mock payment details to continue",
+        "info"
+      );
       return;
     }
     setSubmitting(true);
@@ -165,39 +189,93 @@ export default function BookingPage() {
 
           <section className="py-6">
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-              <CreditCard size={20} /> Payment (mocked — no real charge)
+              <CreditCard size={20} /> {t("Pay with")} <span className="text-sm font-normal text-hof dark:text-neutral-400">(mocked — no real charge)</span>
             </h2>
-            <div className="space-y-3">
-              <input
-                placeholder="Card number"
-                value={card.number}
-                onChange={(e) => setCard({ ...card, number: e.target.value })}
-                className="w-full rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
-              />
-              <div className="flex gap-3">
-                <input
-                  placeholder="MM/YY"
-                  value={card.expiry}
-                  onChange={(e) => setCard({ ...card, expiry: e.target.value })}
-                  className="w-1/2 rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
-                />
-                <input
-                  placeholder="CVC"
-                  value={card.cvc}
-                  onChange={(e) => setCard({ ...card, cvc: e.target.value })}
-                  className="w-1/2 rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
-                />
-              </div>
-              <input
-                placeholder="Name on card"
-                value={card.name}
-                onChange={(e) => setCard({ ...card, name: e.target.value })}
-                className="w-full rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
-              />
-              <p className="text-xs text-hof dark:text-neutral-400">
-                This is a mocked checkout for demo purposes. No real payment will be processed.
-              </p>
+
+            <div className="space-y-2">
+              {PAYMENT_METHODS.map((m) => {
+                const Icon = m.icon;
+                const selected = payMethod === m.id;
+                return (
+                  <div
+                    key={m.id}
+                    className={`rounded-xl border p-4 transition-colors ${
+                      selected ? "border-ink dark:border-white" : "border-neutral-300 dark:border-neutral-700"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setPayMethod(m.id)}
+                      className="flex w-full items-center gap-3 text-left"
+                      aria-pressed={selected}
+                    >
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                          selected ? "border-ink dark:border-white" : "border-neutral-400 dark:border-neutral-600"
+                        }`}
+                      >
+                        {selected && <span className="h-2.5 w-2.5 rounded-full bg-ink dark:bg-white" />}
+                      </span>
+                      <Icon size={20} className="shrink-0" />
+                      <span className="font-medium">{m.id === "card" ? t("Credit or debit card") : t(m.label)}</span>
+                    </button>
+
+                    {selected && m.id === "card" && (
+                      <div className="mt-4 space-y-3">
+                        <input
+                          placeholder="Card number"
+                          value={card.number}
+                          onChange={(e) => setCard({ ...card, number: e.target.value })}
+                          className="w-full rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
+                        />
+                        <div className="flex gap-3">
+                          <input
+                            placeholder="MM/YY"
+                            value={card.expiry}
+                            onChange={(e) => setCard({ ...card, expiry: e.target.value })}
+                            className="w-1/2 rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
+                          />
+                          <input
+                            placeholder="CVC"
+                            value={card.cvc}
+                            onChange={(e) => setCard({ ...card, cvc: e.target.value })}
+                            className="w-1/2 rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
+                          />
+                        </div>
+                        <input
+                          placeholder="Name on card"
+                          value={card.name}
+                          onChange={(e) => setCard({ ...card, name: e.target.value })}
+                          className="w-full rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
+                        />
+                      </div>
+                    )}
+
+                    {selected && m.id === "upi" && (
+                      <div className="mt-4 space-y-2">
+                        <input
+                          placeholder="yourname@upi"
+                          value={upiId}
+                          onChange={(e) => setUpiId(e.target.value)}
+                          className="w-full rounded-lg border border-neutral-300 p-3 text-sm outline-none focus:border-ink dark:border-neutral-600 dark:bg-neutral-900"
+                        />
+                        <p className="text-xs text-hof dark:text-neutral-400">{t("UPI ID")} · e.g. name@okhdfcbank</p>
+                      </div>
+                    )}
+
+                    {selected && (m.id === "paypal" || m.id === "google_pay" || m.id === "apple_pay") && (
+                      <p className="mt-4 text-sm text-hof dark:text-neutral-400">
+                        {t("You'll be redirected to {name} to complete this payment (mocked — no real charge).", { name: m.label })}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+
+            <p className="mt-4 text-xs text-hof dark:text-neutral-400">
+              This is a mocked checkout for demo purposes. No real payment will be processed.
+            </p>
           </section>
         </div>
 
@@ -232,7 +310,7 @@ export default function BookingPage() {
               disabled={submitting}
               className="w-full rounded-xl bg-rausch py-3 font-semibold text-white transition-colors hover:bg-rausch_dark disabled:opacity-50"
             >
-              {submitting ? "..." : t("Confirm and pay")}
+              {submitting ? "..." : payMethod === "card" ? t("Confirm and pay") : `${t("Confirm and pay")} · ${PAYMENT_METHODS.find((m) => m.id === payMethod)?.label}`}
             </button>
           </div>
         </div>
