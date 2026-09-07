@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 venv/
 *.db
+!backend/airbnb.db
 .env
 .DS_Store
 dist/
