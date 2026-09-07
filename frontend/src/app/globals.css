@@ -14,6 +14,12 @@
 
 html {
   color-scheme: light;
+  /* The sticky header shrinks by ~100px when the big search bar collapses.
+     Chrome's scroll anchoring would then pull scrollY back up by the same
+     amount to keep the first card in place, which re-expands the header, which
+     pushes scrollY back down… an endless blink. Anchoring off = one stable
+     scroll position per header state. */
+  overflow-anchor: none;
 }
 html.dark {
   color-scheme: dark;

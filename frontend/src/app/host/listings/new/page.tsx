@@ -24,7 +24,7 @@ function NewListingContent() {
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Pre-fill from /become-a-host/address, which resolves the location before
+  // Pre-fill from a location query string (the old address prompt) before
   // sending the host here. Falls back to a blank draft when opened directly.
   const [form, setForm] = useState<ListingFormData>(() => {
     const base = emptyListingForm();

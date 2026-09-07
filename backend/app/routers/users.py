@@ -115,7 +115,7 @@ def get_profile(user_id: int, db: Session = Depends(get_db)):
         rows = (
             db.query(models.Listing)
             .options(selectinload(models.Listing.photos))
-            .filter(models.Listing.host_id == user.id)
+            .filter(models.Listing.host_id == user.id, models.Listing.status == "published")
             .order_by(models.Listing.id.desc())
             .limit(12)
             .all()

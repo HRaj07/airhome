@@ -55,6 +55,8 @@ class SearchFilters:
 
     def apply(self, q):
         f = self
+        # Drafts and unlisted homes never show up in search, on the map or in rows.
+        q = q.filter(models.Listing.status == "published")
         if f.bounds:
             sw_lat, sw_lng, ne_lat, ne_lng = f.bounds
             q = q.filter(
@@ -232,7 +234,7 @@ def featured_rows(
     listings = (
         db.query(models.Listing)
         .options(selectinload(models.Listing.photos))
-        .filter(models.Listing.city.in_(top_cities))
+        .filter(models.Listing.city.in_(top_cities), models.Listing.status == "published")
         .order_by(models.Listing.id.asc())
         .all()
     )
@@ -276,10 +278,170 @@ def my_listings(db: Session = Depends(get_db), host: models.User = Depends(requi
     return to_listing_cards(db, listings, host.id)
 
 
+# ---------- "Become a host" wizard: drafts ----------
+
+#: The wizard's steps, in order. The draft remembers the one to resume at.
+WIZARD_STEPS = [
+    "about-your-place", "structure", "privacy-type", "location", "floor-plan",
+    "stand-out", "amenities", "photos", "title", "description",
+    "finish-setup", "booking-settings", "visibility", "price", "weekend-price", "discounts", "legal", "receipt",
+]
+
+#: Airbnb's "Which of these best describes your place?" choices.
+STRUCTURE_TYPES = {
+    "house", "flat", "barn", "bed_and_breakfast", "boat", "cabin", "campervan", "casa_particular",
+    "castle", "cave", "container", "cycladic_home", "dammuso", "dome", "earth_home", "farm",
+    "guesthouse", "hotel", "houseboat", "kezhan", "minsu", "riad", "ryokan", "shepherds_hut",
+    "tent", "tiny_home", "tower", "treehouse", "trullo", "windmill", "yurt",
+}
+
+HIGHLIGHTS = {"peaceful", "unique", "family_friendly", "stylish", "central", "spacious"}
+
+
+@router.get("/drafts", response_model=List[schemas.ListingCard])
+def my_drafts(db: Session = Depends(get_db), host: models.User = Depends(require_host)):
+    drafts = (
+        db.query(models.Listing)
+        .options(selectinload(models.Listing.photos))
+        .filter(models.Listing.host_id == host.id, models.Listing.status == "draft")
+        .order_by(models.Listing.updated_at.desc())
+        .all()
+    )
+    return to_listing_cards(db, drafts, host.id)
+
+
+@router.post("/drafts", response_model=schemas.ListingDetail, status_code=status.HTTP_201_CREATED)
+def create_draft(db: Session = Depends(get_db), host: models.User = Depends(require_host)):
+    """Airbnb creates the listing the moment you press "Get started", then
+    fills it in step by step. Nothing is required yet — not even a city."""
+    listing = models.Listing(
+        host_id=host.id,
+        title="",
+        city="",
+        price_per_night=0.0,
+        status="draft",
+        wizard_step="about-your-place",
+        max_guests=4,
+        bedrooms=1,
+        beds=1,
+        bathrooms=1.0,
+    )
+    db.add(listing)
+    db.commit()
+    db.refresh(listing)
+    return to_listing_detail(db, listing, host.id)
+
+
+def _owned_listing(listing_id: int, db: Session, host: models.User) -> models.Listing:
+    listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    if listing.host_id != host.id:
+        raise HTTPException(status_code=403, detail="You do not own this listing")
+    return listing
+
+
+@router.patch("/{listing_id}/draft", response_model=schemas.ListingDetail)
+def update_draft(
+    listing_id: int,
+    payload: schemas.ListingDraftUpdate,
+    db: Session = Depends(get_db),
+    host: models.User = Depends(require_host),
+):
+    """Save one wizard step. Works on published listings too, which is how the
+    hosting dashboard's quick edits (price, discounts, instant book) are saved."""
+    listing = _owned_listing(listing_id, db, host)
+    data = payload.model_dump(exclude_unset=True)
+    data.pop("clear_weekend_price", None)
+
+    if "structure_type" in data and data["structure_type"] not in STRUCTURE_TYPES:
+        raise HTTPException(status_code=400, detail="Unknown structure type")
+    if "guest_visibility" in data and data["guest_visibility"] not in ("any", "experienced"):
+        raise HTTPException(status_code=400, detail="guest_visibility must be 'any' or 'experienced'")
+    if "wizard_step" in data and data["wizard_step"] not in WIZARD_STEPS:
+        raise HTTPException(status_code=400, detail="Unknown wizard step")
+    if "host_highlights" in data:
+        bad = [h for h in data["host_highlights"] if h not in HIGHLIGHTS]
+        if bad:
+            raise HTTPException(status_code=400, detail=f"Unknown highlight: {bad[0]}")
+        listing.highlights = ",".join(data.pop("host_highlights")[:2])
+    if "amenity_ids" in data:
+        ids = data.pop("amenity_ids") or []
+        listing.amenities = db.query(models.Amenity).filter(models.Amenity.id.in_(ids)).all() if ids else []
+    if "photo_urls" in data:
+        urls = [u.strip() for u in (data.pop("photo_urls") or []) if u.strip()]
+        listing.photos = [models.ListingPhoto(url=u, position=i) for i, u in enumerate(urls)]
+    if payload.clear_weekend_price:
+        listing.weekend_price = None
+        data.pop("weekend_price", None)
+
+    for key, value in data.items():
+        if value is None and key != "weekend_price":
+            continue
+        setattr(listing, key, value)
+
+    db.commit()
+    db.refresh(listing)
+    return to_listing_detail(db, listing, host.id)
+
+
+def _publish_problems(listing: models.Listing) -> List[str]:
+    problems = []
+    if not listing.title.strip():
+        problems.append("Add a title")
+    if not listing.city.strip():
+        problems.append("Add the location")
+    if len(listing.photos) < 1:
+        problems.append("Add at least one photo")
+    if not listing.price_per_night or listing.price_per_night <= 0:
+        problems.append("Set a nightly price")
+    if not listing.description.strip():
+        problems.append("Write a description")
+    return problems
+
+
+@router.post("/{listing_id}/publish", response_model=schemas.ListingDetail)
+def publish_listing(listing_id: int, db: Session = Depends(get_db), host: models.User = Depends(require_host)):
+    listing = _owned_listing(listing_id, db, host)
+    problems = _publish_problems(listing)
+    if problems:
+        raise HTTPException(status_code=400, detail="; ".join(problems))
+    listing.status = "published"
+    listing.wizard_step = "receipt"
+    if not listing.published_at:
+        listing.published_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(listing)
+    return to_listing_detail(db, listing, host.id)
+
+
+@router.patch("/{listing_id}/status", response_model=schemas.ListingDetail)
+def set_listing_status(
+    listing_id: int,
+    payload: schemas.ListingStatusUpdate,
+    db: Session = Depends(get_db),
+    host: models.User = Depends(require_host),
+):
+    """List / unlist from the hosting dashboard. Publishing a draft goes through
+    /publish so the completeness checks run."""
+    listing = _owned_listing(listing_id, db, host)
+    if payload.status not in ("published", "unlisted"):
+        raise HTTPException(status_code=400, detail="status must be 'published' or 'unlisted'")
+    if payload.status == "published" and _publish_problems(listing):
+        raise HTTPException(status_code=400, detail="; ".join(_publish_problems(listing)))
+    listing.status = payload.status
+    db.commit()
+    db.refresh(listing)
+    return to_listing_detail(db, listing, host.id)
+
+
 @router.get("/{listing_id}", response_model=schemas.ListingDetail)
 def get_listing(listing_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user_optional)):
     listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    # A draft or unlisted home exists only for its host.
+    if (listing.status or "published") != "published" and (not current_user or current_user.id != listing.host_id):
         raise HTTPException(status_code=404, detail="Listing not found")
     return to_listing_detail(db, listing, current_user.id if current_user else None)
 
@@ -314,6 +476,15 @@ def _apply_listing_fields(listing: models.Listing, payload: schemas.ListingCreat
     listing.instant_book = payload.instant_book
     listing.guest_access = payload.guest_access
     listing.other_notes = payload.other_notes
+    for key in (
+        "structure_type", "weekend_price", "new_listing_discount", "weekly_discount",
+        "monthly_discount", "guest_visibility", "has_exterior_camera", "has_noise_monitor", "has_weapons",
+    ):
+        value = getattr(payload, key)
+        if value is not None:
+            setattr(listing, key, value)
+    if payload.host_highlights is not None:
+        listing.highlights = ",".join(payload.host_highlights[:2])
 
     if payload.amenity_ids:
         listing.amenities = db.query(models.Amenity).filter(models.Amenity.id.in_(payload.amenity_ids)).all()
@@ -327,7 +498,7 @@ def _apply_listing_fields(listing: models.Listing, payload: schemas.ListingCreat
 
 @router.post("", response_model=schemas.ListingDetail, status_code=status.HTTP_201_CREATED)
 def create_listing(payload: schemas.ListingCreate, db: Session = Depends(get_db), host: models.User = Depends(require_host)):
-    listing = models.Listing(host_id=host.id)
+    listing = models.Listing(host_id=host.id, status="published", published_at=datetime.datetime.utcnow())
     _apply_listing_fields(listing, payload, db)
     db.add(listing)
     db.commit()

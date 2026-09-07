@@ -57,7 +57,7 @@ def list_destinations(
         func.avg(models.Listing.latitude),
         func.avg(models.Listing.longitude),
         func.count(models.Listing.id),
-    ).group_by(models.Listing.city, models.Listing.state, models.Listing.country)
+    ).filter(models.Listing.status == "published").group_by(models.Listing.city, models.Listing.state, models.Listing.country)
     if like:
         city_q = city_q.filter(
             or_(
@@ -96,7 +96,7 @@ def list_destinations(
                 func.avg(models.Listing.longitude),
                 func.count(models.Listing.id),
             )
-            .filter(models.Listing.neighborhood != "", models.Listing.neighborhood.ilike(like))
+            .filter(models.Listing.status == "published", models.Listing.neighborhood != "", models.Listing.neighborhood.ilike(like))
             .group_by(models.Listing.neighborhood, models.Listing.city, models.Listing.country)
             .order_by(func.count(models.Listing.id).desc())
             .limit(CANDIDATE_LIMIT)

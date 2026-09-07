@@ -72,7 +72,7 @@ export default function EditListingPage() {
     try {
       await listingsApi.update(id, form);
       showToast("Listing updated", "success");
-      router.push("/host/dashboard");
+      router.push("/hosting/listings");
     } catch {
       showToast("Couldn't save changes", "error");
     } finally {
@@ -85,7 +85,7 @@ export default function EditListingPage() {
     try {
       await listingsApi.remove(id);
       showToast("Listing deleted", "success");
-      router.push("/host/dashboard");
+      router.push("/hosting/listings");
     } catch {
       showToast("Couldn't delete listing", "error");
       setDeleting(false);

@@ -152,3 +152,34 @@ written to keep their query count flat rather than proportional to the result se
 
 Destinations are keyed by city **and** country: two real cities are named Lagos, and the
 sublabel is what tells them apart.
+
+## Hosting ("Become a host" wizard + hosting dashboard)
+
+Listings carry a `status` (`draft` | `published` | `unlisted`); only `published`
+homes appear in search, the map, home-page rows, destinations and public
+profiles. A draft or unlisted home returns 404 to everyone but its host.
+Listing detail also exposes the wizard fields: `structure_type`,
+`host_highlights`, `weekend_price`, `new_listing_discount`, `weekly_discount`,
+`monthly_discount`, `guest_visibility`, `has_exterior_camera`,
+`has_noise_monitor`, `has_weapons`, `wizard_step`.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/listings/drafts` | host | Your unfinished drafts |
+| POST | `/listings/drafts` | host | Create an empty draft (Airbnb's "Get started") |
+| PATCH | `/listings/{id}/draft` | host | Save one wizard step — every field optional; `wizard_step` records where to resume; `clear_weekend_price: true` resets the weekend price |
+| POST | `/listings/{id}/publish` | host | Publish; 400 lists what's missing (title, location, photo, price, description) |
+| PATCH | `/listings/{id}/status` | host | `{status: "published" \| "unlisted"}` — list / unlist |
+| GET | `/host/reservations` | host | Today's buckets: `checking_out`, `currently_hosting`, `arriving_soon`, `upcoming`, `pending_review`, plus `all` |
+| GET | `/host/earnings?year=` | host | Paid vs upcoming payouts by month, summary tiles, transaction history (3% host fee on homes, 20% on experiences/services) |
+| GET | `/host/insights` | host | Ratings + breakdown, Superhost progress, 30-day occupancy, per-listing performance, recent reviews |
+| GET | `/host/calendar/{listing_id}?year=&month=` | host | One month of nights: price (weekend price on Fri/Sat), blocked, booked (+ guest name) |
+| PUT | `/host/calendar/{listing_id}` | host | `{dates: [...], blocked?, price?, reset_price?}` — block/open nights, set or reset a custom price |
+| GET | `/host/estimate?city=&lat=&lng=&bedrooms=&nights=&property_type=` | — | "Your home could make X": median nightly rate of comparable published homes nearby |
+
+Host-blocked nights appear in `blocked_dates` on the listing and are refused by
+`POST /bookings` with 409, like any overlap.
+
+Schema changes are additive and applied on start-up (`app/migrate.py` adds
+missing columns to the shipped SQLite database); a new
+`listing_calendar_days` table holds calendar overrides.

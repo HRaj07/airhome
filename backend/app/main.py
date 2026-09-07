@@ -7,9 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 # Base.metadata, which create_all() below reads. Removing it creates an empty DB.
 from . import models  # noqa: F401
 from .database import engine, Base
+from .migrate import ensure_columns
 from .routers import auth, listings, bookings, reviews, wishlist, amenities, host, experiences, destinations, users
 
 Base.metadata.create_all(bind=engine)
+# The seeded database predates the hosting columns; add whatever is missing.
+ensure_columns(engine)
 
 app = FastAPI(title="Airbnb Clone API", version="1.0.0")
 

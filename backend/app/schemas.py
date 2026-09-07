@@ -129,9 +129,30 @@ class ListingCard(BaseModel):
     rating_avg: float = 0.0
     review_count: int = 0
     is_wishlisted: bool = False
+    # draft | published | unlisted — only the owner ever sees non-published cards.
+    status: str = "published"
+    # Where the "Become a host" wizard resumes (drafts only, but harmless elsewhere).
+    wizard_step: str = "about-your-place"
 
     class Config:
         from_attributes = True
+
+
+class HostingFields(BaseModel):
+    """Everything the "Become a host" wizard collects beyond the classic listing
+    form. Shared by the detail view (so the wizard can resume) and the draft
+    update payload."""
+    structure_type: str = "house"
+    host_highlights: List[str] = []
+    weekend_price: Optional[float] = None
+    new_listing_discount: float = 0.20
+    weekly_discount: float = 0.10
+    monthly_discount: float = 0.20
+    guest_visibility: str = "any"
+    has_exterior_camera: bool = False
+    has_noise_monitor: bool = False
+    has_weapons: bool = False
+    wizard_step: str = "about-your-place"
 
 
 class ListingHighlight(BaseModel):
@@ -154,7 +175,7 @@ class SleepingArea(BaseModel):
     beds: str        # "1 double bed"
 
 
-class ListingDetail(ListingCard):
+class ListingDetail(ListingCard, HostingFields):
     description: str = ""
     guest_access: str = ""
     other_notes: str = ""
@@ -195,10 +216,71 @@ class ListingCreate(BaseModel):
     other_notes: str = ""
     amenity_ids: List[int] = []
     photo_urls: List[str] = []
+    # Optional hosting-wizard fields; the classic form omits them and keeps defaults.
+    structure_type: Optional[str] = None
+    host_highlights: Optional[List[str]] = None
+    weekend_price: Optional[float] = None
+    new_listing_discount: Optional[float] = None
+    weekly_discount: Optional[float] = None
+    monthly_discount: Optional[float] = None
+    guest_visibility: Optional[str] = None
+    has_exterior_camera: Optional[bool] = None
+    has_noise_monitor: Optional[bool] = None
+    has_weapons: Optional[bool] = None
 
 
 class ListingUpdate(ListingCreate):
     pass
+
+
+class ListingDraftUpdate(BaseModel):
+    """One wizard step's worth of changes. Every field is optional: the wizard
+    saves after each step and sends only what that step touched."""
+    title: Optional[str] = Field(default=None, max_length=32)
+    description: Optional[str] = Field(default=None, max_length=500)
+    property_type: Optional[PropertyType] = None
+    structure_type: Optional[str] = None
+    bedrooms: Optional[int] = Field(default=None, ge=0, le=50)
+    beds: Optional[int] = Field(default=None, ge=1, le=50)
+    bathrooms: Optional[float] = Field(default=None, ge=0, le=50)
+    max_guests: Optional[int] = Field(default=None, ge=1, le=16)
+    price_per_night: Optional[float] = Field(default=None, ge=0)
+    weekend_price: Optional[float] = Field(default=None, ge=0)
+    cleaning_fee: Optional[float] = Field(default=None, ge=0)
+    address: Optional[str] = None
+    neighborhood: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    country: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    instant_book: Optional[bool] = None
+    guest_visibility: Optional[str] = None
+    host_highlights: Optional[List[str]] = None
+    new_listing_discount: Optional[float] = Field(default=None, ge=0, le=1)
+    weekly_discount: Optional[float] = Field(default=None, ge=0, le=1)
+    monthly_discount: Optional[float] = Field(default=None, ge=0, le=1)
+    has_exterior_camera: Optional[bool] = None
+    has_noise_monitor: Optional[bool] = None
+    has_weapons: Optional[bool] = None
+    amenity_ids: Optional[List[int]] = None
+    photo_urls: Optional[List[str]] = None
+    wizard_step: Optional[str] = None
+    # Clear the weekend price ("same as weekday") without sending null-vs-missing games.
+    clear_weekend_price: bool = False
+
+
+class ListingStatusUpdate(BaseModel):
+    status: str  # published | unlisted
+
+
+class EarningsEstimate(BaseModel):
+    """The "Your home could make ₹X on Airbnb" number on the hosting landing page."""
+    city: str
+    nightly_rate: float
+    nights: int
+    total: float
+    sample_size: int
 
 
 class NearestDestination(BaseModel):
@@ -451,3 +533,134 @@ UserProfile.model_rebuild()
 
 # HostDashboard names experience schemas declared below it.
 HostDashboard.model_rebuild()
+
+
+# ---------- Hosting dashboard ----------
+
+class HostReservation(BaseModel):
+    """One stay as the host sees it: who is coming, when, and what they will be paid."""
+    id: int
+    kind: str = "home"  # home | experience | service
+    listing_id: int
+    listing_title: str
+    cover_photo_url: str = ""
+    city: str = ""
+    guest_id: int
+    guest_name: str
+    guest_avatar_url: str = ""
+    check_in: datetime.date
+    check_out: datetime.date
+    nights: int
+    guests_count: int
+    total_price: float
+    host_payout: float
+    status: str
+    created_at: datetime.datetime
+
+
+class HostReservations(BaseModel):
+    """Airbnb's Today tabs: Checking out / Currently hosting / Arriving soon /
+    Upcoming / Pending review, plus the full history for the Reservations page."""
+    checking_out: List[HostReservation] = []
+    currently_hosting: List[HostReservation] = []
+    arriving_soon: List[HostReservation] = []
+    upcoming: List[HostReservation] = []
+    pending_review: List[HostReservation] = []
+    all: List[HostReservation] = []
+
+
+class EarningsMonth(BaseModel):
+    month: int
+    label: str
+    paid: float = 0.0
+    upcoming: float = 0.0
+
+
+class EarningsTransaction(BaseModel):
+    id: int
+    kind: str = "home"
+    date: datetime.date
+    listing_title: str
+    guest_name: str
+    nights: int
+    gross: float
+    host_fee: float
+    payout: float
+    status: str  # paid | upcoming | cancelled
+
+
+class HostEarnings(BaseModel):
+    year: int
+    years: List[int]
+    total_year: float
+    paid_out: float
+    upcoming: float
+    bookings_count: int
+    nights_booked: int
+    avg_nightly: float
+    months: List[EarningsMonth]
+    transactions: List[EarningsTransaction]
+    host_fee_pct: float = 0.03
+
+
+class ListingInsight(BaseModel):
+    id: int
+    title: str
+    cover_photo_url: str = ""
+    city: str = ""
+    status: str = "published"
+    rating_avg: float = 0.0
+    review_count: int = 0
+    wishlist_saves: int = 0
+    bookings_30d: int = 0
+    occupancy_30d: float = 0.0
+    revenue_30d: float = 0.0
+    revenue_total: float = 0.0
+
+
+class InsightReview(BaseModel):
+    id: int
+    listing_title: str
+    author_name: str
+    rating: int
+    comment: str = ""
+    created_at: datetime.datetime
+
+
+class HostInsights(BaseModel):
+    rating_avg: float
+    review_count: int
+    five_star_pct: float
+    occupancy_30d: float
+    nights_booked_30d: int
+    wishlist_saves: int
+    superhost_progress: dict
+    listings: List[ListingInsight]
+    recent_reviews: List[InsightReview]
+    rating_breakdown: List[RatingCategory] = []
+
+
+class CalendarDayOut(BaseModel):
+    date: datetime.date
+    price: float
+    blocked: bool = False
+    booked: bool = False
+    booking_id: Optional[int] = None
+    guest_name: str = ""
+    is_weekend: bool = False
+    custom_price: bool = False
+
+
+class CalendarMonth(BaseModel):
+    listing_id: int
+    listing_title: str
+    base_price: float
+    weekend_price: Optional[float] = None
+    days: List[CalendarDayOut]
+
+
+class CalendarUpdate(BaseModel):
+    dates: List[datetime.date]
+    blocked: Optional[bool] = None
+    price: Optional[float] = Field(default=None, ge=0)
+    reset_price: bool = False

@@ -26,7 +26,22 @@ def create_booking(payload: schemas.BookingCreate, db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail="check_in cannot be in the past")
     if payload.guests_count < 1 or payload.guests_count > listing.max_guests:
         raise HTTPException(status_code=400, detail=f"Guests must be between 1 and {listing.max_guests}")
+    if (listing.status or "published") != "published":
+        raise HTTPException(status_code=404, detail="Listing not found")
     if booking_overlaps(payload.check_in, payload.check_out, listing.id, db):
+        raise HTTPException(status_code=409, detail="Listing is not available for the selected dates")
+    # Nights the host blocked on the hosting calendar.
+    host_blocked = (
+        db.query(models.ListingCalendarDay.id)
+        .filter(
+            models.ListingCalendarDay.listing_id == listing.id,
+            models.ListingCalendarDay.blocked.is_(True),
+            models.ListingCalendarDay.date >= payload.check_in,
+            models.ListingCalendarDay.date < payload.check_out,
+        )
+        .first()
+    )
+    if host_blocked:
         raise HTTPException(status_code=409, detail="Listing is not available for the selected dates")
 
     nights = nights_between(payload.check_in, payload.check_out)

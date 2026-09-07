@@ -206,7 +206,7 @@ export const INFO_PAGES: InfoPage[] = [
     sections: [
       { heading: "Explore", body: ["/ · /homes · /experiences · /services · /gift-cards"] },
       { heading: "Account", body: ["/login · /signup · /trips · /wishlist · /users/[id]"] },
-      { heading: "Hosting", body: ["/host/dashboard · /host/listings/new · /refer · /co-host"] },
+      { heading: "Hosting", body: ["/hosting · /become-a-host · /host/homes · /refer · /co-host"] },
       { heading: "Support", body: ["/help · /info/aircover · /info/cancellation-options · /info/anti-discrimination · /info/disability-support"] },
     ],
   },

@@ -50,7 +50,7 @@ export default function HostTypeModal({ onClose }: { onClose: () => void }) {
 
   /** Where each choice starts, mirroring Airbnb's own routes. */
   const START: Record<HostType, string> = {
-    home: "/become-a-host/address",
+    home: "/become-a-host",
     experience: "/setup/experiences/create",
     service: "/setup/services/create",
   };

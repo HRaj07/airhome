@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { isHostModeRoute } from "./Navbar";
 import { Globe, Facebook, Instagram, Twitter, ChevronDown } from "lucide-react";
 import { useLocale } from "@/lib/locale-context";
 import LocaleModal from "./LocaleModal";
@@ -116,9 +118,13 @@ export default function Footer() {
   const [tab, setTab] = useState(0);
   const [showMore, setShowMore] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
+  const pathname = usePathname() || "/";
 
   const picks = INSPIRATION[tab].picks;
   const visible = showMore ? picks : picks.slice(0, 17);
+
+  // Host mode and the listing wizard are chrome-free, like the real ones.
+  if (isHostModeRoute(pathname)) return null;
 
   return (
     <footer className="mt-16 border-t border-neutral-200 bg-[#f7f7f7] dark:border-neutral-800 dark:bg-neutral-950">

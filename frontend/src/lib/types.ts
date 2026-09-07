@@ -45,6 +45,26 @@ export interface ListingCard {
   rating_avg: number;
   review_count: number;
   is_wishlisted: boolean;
+  /** draft | published | unlisted — only the owner ever sees non-published cards. */
+  status?: ListingStatus;
+  /** Where the "Become a host" wizard resumes a draft. */
+  wizard_step?: string;
+}
+
+export type ListingStatus = "draft" | "published" | "unlisted";
+
+/** Everything the "Become a host" wizard collects beyond the classic form. */
+export interface HostingFields {
+  structure_type: string;
+  host_highlights: string[];
+  weekend_price: number | null;
+  new_listing_discount: number;
+  weekly_discount: number;
+  monthly_discount: number;
+  guest_visibility: "any" | "experienced";
+  has_exterior_camera: boolean;
+  has_noise_monitor: boolean;
+  has_weapons: boolean;
 }
 
 export interface Photo {
@@ -53,7 +73,7 @@ export interface Photo {
   position: number;
 }
 
-export interface ListingDetail extends ListingCard {
+export interface ListingDetail extends ListingCard, HostingFields {
   description: string;
   guest_access: string;
   other_notes: string;
@@ -152,6 +172,158 @@ export interface ListingFormData {
   other_notes?: string;
   amenity_ids: number[];
   photo_urls: string[];
+}
+
+/** One wizard step's worth of changes: send only what the step touched. */
+export type ListingDraftUpdate = Partial<
+  Pick<
+    ListingFormData,
+    | "title" | "description" | "property_type" | "bedrooms" | "beds" | "bathrooms" | "max_guests"
+    | "price_per_night" | "cleaning_fee" | "address" | "neighborhood" | "city" | "state" | "country"
+    | "latitude" | "longitude" | "instant_book" | "amenity_ids" | "photo_urls"
+  > &
+    HostingFields & { clear_weekend_price: boolean; wizard_step: string }
+>;
+
+// ---------- Hosting dashboard ----------
+
+export interface HostReservation {
+  id: number;
+  kind: "home" | "experience" | "service";
+  listing_id: number;
+  listing_title: string;
+  cover_photo_url: string;
+  city: string;
+  guest_id: number;
+  guest_name: string;
+  guest_avatar_url: string;
+  check_in: string;
+  check_out: string;
+  nights: number;
+  guests_count: number;
+  total_price: number;
+  host_payout: number;
+  status: BookingStatus;
+  created_at: string;
+}
+
+export interface HostReservations {
+  checking_out: HostReservation[];
+  currently_hosting: HostReservation[];
+  arriving_soon: HostReservation[];
+  upcoming: HostReservation[];
+  pending_review: HostReservation[];
+  all: HostReservation[];
+}
+
+export interface EarningsMonth {
+  month: number;
+  label: string;
+  paid: number;
+  upcoming: number;
+}
+
+export interface EarningsTransaction {
+  id: number;
+  kind: "home" | "experience" | "service";
+  date: string;
+  listing_title: string;
+  guest_name: string;
+  nights: number;
+  gross: number;
+  host_fee: number;
+  payout: number;
+  status: "paid" | "upcoming" | "cancelled";
+}
+
+export interface HostEarnings {
+  year: number;
+  years: number[];
+  total_year: number;
+  paid_out: number;
+  upcoming: number;
+  bookings_count: number;
+  nights_booked: number;
+  avg_nightly: number;
+  months: EarningsMonth[];
+  transactions: EarningsTransaction[];
+  host_fee_pct: number;
+}
+
+export interface ListingInsight {
+  id: number;
+  title: string;
+  cover_photo_url: string;
+  city: string;
+  status: ListingStatus;
+  rating_avg: number;
+  review_count: number;
+  wishlist_saves: number;
+  bookings_30d: number;
+  occupancy_30d: number;
+  revenue_30d: number;
+  revenue_total: number;
+}
+
+export interface InsightReview {
+  id: number;
+  listing_title: string;
+  author_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+}
+
+export interface SuperhostCriterion {
+  value: number;
+  target: number;
+  met: boolean;
+}
+
+export interface HostInsights {
+  rating_avg: number;
+  review_count: number;
+  five_star_pct: number;
+  occupancy_30d: number;
+  nights_booked_30d: number;
+  wishlist_saves: number;
+  superhost_progress: {
+    is_superhost: boolean;
+    rating: SuperhostCriterion;
+    stays: SuperhostCriterion;
+    cancellation_rate: SuperhostCriterion;
+    response_rate: SuperhostCriterion;
+  };
+  listings: ListingInsight[];
+  recent_reviews: InsightReview[];
+  rating_breakdown: RatingCategory[];
+}
+
+export interface CalendarDayOut {
+  date: string;
+  price: number;
+  blocked: boolean;
+  booked: boolean;
+  booking_id: number | null;
+  guest_name: string;
+  is_weekend: boolean;
+  custom_price: boolean;
+}
+
+export interface CalendarMonth {
+  listing_id: number;
+  listing_title: string;
+  base_price: number;
+  weekend_price: number | null;
+  days: CalendarDayOut[];
+}
+
+export interface EarningsEstimate {
+  city: string;
+  nightly_rate: number;
+  nights: number;
+  total: number;
+  sample_size: number;
 }
 
 export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {

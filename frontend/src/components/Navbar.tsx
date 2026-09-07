@@ -202,6 +202,11 @@ const TABS: { key: Tab; label: string; emoji: string; icon?: React.ReactNode; hr
   { key: "services", label: "Services", emoji: "🛎️", href: "/services" },
 ];
 
+/** Routes that render Airbnb's host-mode header (or the wizard's) instead of this one. */
+export function isHostModeRoute(pathname: string): boolean {
+  return pathname === "/hosting" || pathname.startsWith("/hosting/") || pathname === "/become-a-host" || pathname.startsWith("/become-a-host/");
+}
+
 /** Which tab is active, and which search mode the header uses, for a pathname. */
 function tabForPath(pathname: string): { tab: Tab; mode: SearchMode; isTabRoot: boolean } {
   if (pathname === "/") return { tab: "all", mode: "homes", isTabRoot: true };
@@ -231,26 +236,45 @@ export default function Navbar() {
 
   const { tab, mode, isTabRoot } = tabForPath(pathname || "/");
   const isHome = isTabRoot;
+  // Airbnb's host mode and its listing wizard carry their own headers.
+  const hostMode = isHostModeRoute(pathname || "/");
   const expanded = (isHome && atTop) || manualExpand;
   const overlay = expanded && !(isHome && atTop);
 
   // Collapse the big search bar once the page has scrolled, with hysteresis.
-  // A single threshold flickers: collapsing shrinks the header by ~100px,
-  // which pulls scrollY back under the threshold, which re-expands it, and so
-  // on. Two thresholds far apart, plus refusing to collapse on a page too
-  // short to scroll past the header, make it stable.
+  // Collapsing shrinks the header by ~100px. Two things used to turn that into
+  // a blink whenever the page stopped scrolling near the threshold:
+  //  1. Chrome's scroll anchoring moved scrollY by the same ~100px to keep the
+  //     first card still, re-crossing the threshold (fixed in globals.css with
+  //     `overflow-anchor: none`).
+  //  2. The state was re-evaluated on the very next scroll event, before the
+  //     layout from the previous change had settled.
+  // So: thresholds far apart, a short lock-out after each change, no collapse
+  // on a page too short to scroll past the header, and never both directions
+  // in one evaluation.
   useEffect(() => {
     const COLLAPSE_AT = 80;
     const EXPAND_AT = 16;
+    const LOCK_MS = 250;
     let raf = 0;
+    let lockedUntil = 0;
+    let current = true;
     function evaluate() {
       raf = 0;
+      const now = performance.now();
+      if (now < lockedUntil) {
+        // Re-check once the lock lifts so a fast scroll never strands the header.
+        window.setTimeout(onScroll, lockedUntil - now + 1);
+        return;
+      }
       const y = window.scrollY;
-      const canScrollPast = document.documentElement.scrollHeight - window.innerHeight > COLLAPSE_AT + 120;
-      setAtTop((prev) => {
-        if (prev) return !(canScrollPast && y > COLLAPSE_AT);
-        return y < EXPAND_AT;
-      });
+      const canScrollPast = document.documentElement.scrollHeight - window.innerHeight > COLLAPSE_AT + 160;
+      const next = current ? !(canScrollPast && y > COLLAPSE_AT) : y < EXPAND_AT;
+      if (next !== current) {
+        current = next;
+        lockedUntil = now + LOCK_MS;
+        setAtTop(next);
+      }
       if (y > COLLAPSE_AT) setManualExpand(false);
     }
     function onScroll() {
@@ -293,7 +317,7 @@ export default function Navbar() {
   // Airbnb's "What would you like to host?" chooser, which upgrades the account
   // in place — sending them to /signup would ask them to make a second account.
   // Signed-out visitors still sign up, with the host box pre-ticked.
-  const hostHref = user?.is_host ? "/host/dashboard" : "/signup?host=1";
+  const hostHref = user?.is_host ? "/hosting" : user ? "/become-a-host" : "/host/homes";
   const hostLabel = user?.is_host ? t("Switch to hosting") : t("Become a host");
   const hostNeedsChooser = !!user && !user.is_host;
 
@@ -312,6 +336,8 @@ export default function Navbar() {
 
   const menuItem =
     "flex w-full items-center gap-3 px-5 py-3.5 text-left text-[15px] hover:bg-neutral-100 dark:hover:bg-neutral-800";
+
+  if (hostMode) return null;
 
   return (
     <>
@@ -371,12 +397,9 @@ export default function Navbar() {
                   {hostLabel}
                 </Link>
               ) : (
-                <button
-                  onClick={() => setAuthOpen(true)}
-                  className="hidden rounded-full px-4 py-2.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:block"
-                >
-                  {t("Log in or sign up")}
-                </button>
+                <Link href="/host/homes" className="hidden rounded-full px-4 py-2.5 text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 lg:block">
+                  {t("Become a host")}
+                </Link>
               )}
               {/* Avatar: a direct link to your profile, like the real header. */}
               {user && (
@@ -425,7 +448,7 @@ export default function Navbar() {
                               <UserRound size={20} strokeWidth={1.6} /> {t("Profile")}
                             </Link>
                             {user.is_host && (
-                              <Link href="/host/dashboard" onClick={() => setMenuOpen(false)} className={menuItem}>
+                              <Link href="/hosting" onClick={() => setMenuOpen(false)} className={menuItem}>
                                 <HomeIcon size={20} strokeWidth={1.6} /> {t("Host dashboard")}
                               </Link>
                             )}

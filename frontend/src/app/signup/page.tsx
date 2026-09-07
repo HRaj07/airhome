@@ -36,7 +36,7 @@ function SignupForm() {
     try {
       await register(email, password, fullName, isHost);
       showToast("Account created! Welcome to airhome.", "success");
-      router.push(isHost ? "/host/dashboard" : "/");
+      router.push(isHost ? "/become-a-host" : "/");
     } catch (e) {
       showToast(e instanceof ApiError ? e.message : "Sign up failed", "error");
     } finally {

@@ -87,6 +87,8 @@ def _card(listing: models.Listing, rating: Tuple[float, int], wishlisted: bool) 
         rating_avg=avg,
         review_count=count,
         is_wishlisted=wishlisted,
+        status=listing.status or "published",
+        wizard_step=listing.wizard_step or "about-your-place",
     )
 
 
@@ -170,9 +172,24 @@ def to_listing_detail(db: Session, listing: models.Listing, current_user_id: Opt
             while d < b.check_out:
                 blocked.append(d.isoformat())
                 d += datetime.timedelta(days=1)
+    # Nights the host blocked on the hosting calendar are unavailable too.
+    for day in listing.calendar_days:
+        if day.blocked:
+            blocked.append(day.date.isoformat())
+    blocked = sorted(set(blocked))
     years = max(1, (datetime.datetime.utcnow() - listing.host.created_at).days // 365)
     return schemas.ListingDetail(
         **card.model_dump(),
+        structure_type=listing.structure_type or "house",
+        host_highlights=[h for h in (listing.highlights or "").split(",") if h],
+        weekend_price=listing.weekend_price,
+        new_listing_discount=listing.new_listing_discount if listing.new_listing_discount is not None else 0.2,
+        weekly_discount=listing.weekly_discount if listing.weekly_discount is not None else 0.1,
+        monthly_discount=listing.monthly_discount if listing.monthly_discount is not None else 0.2,
+        guest_visibility=listing.guest_visibility or "any",
+        has_exterior_camera=bool(listing.has_exterior_camera),
+        has_noise_monitor=bool(listing.has_noise_monitor),
+        has_weapons=bool(listing.has_weapons),
         description=listing.description,
         guest_access=listing.guest_access or "",
         other_notes=listing.other_notes or "",

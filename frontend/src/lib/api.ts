@@ -11,6 +11,13 @@ import type {
   Destination,
   FeaturedRow,
   HostDashboard,
+  HostReservations,
+  HostEarnings,
+  HostInsights,
+  CalendarMonth,
+  EarningsEstimate,
+  ListingDraftUpdate,
+  ListingStatus,
   PaginatedExperiences,
   ListingCard,
   ListingDetail,
@@ -137,6 +144,16 @@ export const listingsApi = {
   update: (id: number | string, data: ListingFormData) =>
     request<ListingDetail>(`/listings/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   remove: (id: number | string) => request<{ ok: boolean }>(`/listings/${id}`, { method: "DELETE" }),
+
+  // ---- "Become a host" wizard ----
+  drafts: () => request<ListingCard[]>("/listings/drafts"),
+  createDraft: () => request<ListingDetail>("/listings/drafts", { method: "POST" }),
+  /** Save one wizard step (also the dashboard's quick edits on a live listing). */
+  updateDraft: (id: number | string, data: ListingDraftUpdate) =>
+    request<ListingDetail>(`/listings/${id}/draft`, { method: "PATCH", body: JSON.stringify(data) }),
+  publish: (id: number | string) => request<ListingDetail>(`/listings/${id}/publish`, { method: "POST" }),
+  setStatus: (id: number | string, status: Exclude<ListingStatus, "draft">) =>
+    request<ListingDetail>(`/listings/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
 };
 
 // ---------- Bookings ----------
@@ -165,6 +182,18 @@ export const wishlistApi = {
 // ---------- Host ----------
 export const hostApi = {
   dashboard: () => request<HostDashboard>("/host/dashboard"),
+  reservations: () => request<HostReservations>("/host/reservations"),
+  earnings: (year?: number) => request<HostEarnings>(`/host/earnings${toQueryString({ year })}`),
+  insights: () => request<HostInsights>("/host/insights"),
+  calendar: (listingId: number | string, year: number, month: number) =>
+    request<CalendarMonth>(`/host/calendar/${listingId}${toQueryString({ year, month })}`),
+  updateCalendar: (
+    listingId: number | string,
+    data: { dates: string[]; blocked?: boolean; price?: number; reset_price?: boolean }
+  ) => request<{ ok: boolean }>(`/host/calendar/${listingId}`, { method: "PUT", body: JSON.stringify(data) }),
+  /** "Your home could make ₹X": open to signed-out visitors. */
+  estimate: (params: { city?: string; lat?: number; lng?: number; bedrooms?: number; nights?: number; property_type?: string }) =>
+    request<EarningsEstimate>(`/host/estimate${toQueryString(params)}`),
 };
 
 // ---------- Destinations (search autocomplete) ----------

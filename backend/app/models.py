@@ -62,6 +62,30 @@ class Listing(Base):
     service_fee_pct = Column(Float, default=0.12)
     # Airbnb's "Instant Book": confirm without waiting for the host. A filter chip.
     instant_book = Column(Boolean, default=True, index=True)
+    # ---- Hosting flow (Airbnb's "Become a host" wizard + hosting dashboard) ----
+    # "draft" while the wizard is unfinished, "published" once live, "unlisted"
+    # when the host hides it. Only published listings appear in search.
+    status = Column(String, default="published", index=True)
+    # The wizard step to resume a draft at ("structure", "photos", ...).
+    wizard_step = Column(String, default="about-your-place")
+    # "Which of these best describes your place?": house, flat, barn, cabin...
+    # (property_type stays the privacy level: entire home / room / shared room.)
+    structure_type = Column(String, default="house")
+    # Up to two of Airbnb's highlights: peaceful, unique, family_friendly, stylish, central, spacious.
+    highlights = Column(String, default="")
+    # Friday and Saturday nights; null means the weekday price applies.
+    weekend_price = Column(Float, nullable=True)
+    # Airbnb's default discounts: 20% for the first 3 bookings, 10% weekly, 20% monthly.
+    new_listing_discount = Column(Float, default=0.20)
+    weekly_discount = Column(Float, default=0.10)
+    monthly_discount = Column(Float, default=0.20)
+    # "Choose who to welcome for your first reservation": any | experienced
+    guest_visibility = Column(String, default="any")
+    # Safety details the host must disclose.
+    has_exterior_camera = Column(Boolean, default=False)
+    has_noise_monitor = Column(Boolean, default=False)
+    has_weapons = Column(Boolean, default=False)
+    published_at = Column(DateTime, nullable=True)
     # Free-text sections of the listing page, as on the real one.
     guest_access = Column(Text, default="")
     other_notes = Column(Text, default="")
@@ -83,6 +107,22 @@ class Listing(Base):
     bookings = relationship("Booking", back_populates="listing", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="listing", cascade="all, delete-orphan")
     wishlisted_by = relationship("WishlistItem", back_populates="listing", cascade="all, delete-orphan")
+    calendar_days = relationship("ListingCalendarDay", back_populates="listing", cascade="all, delete-orphan")
+
+
+class ListingCalendarDay(Base):
+    """A host override for one night on the hosting calendar: blocked, and/or a
+    custom price. Nights without a row are open at the listing's base price."""
+    __tablename__ = "listing_calendar_days"
+    __table_args__ = (UniqueConstraint("listing_id", "date", name="uq_listing_calendar_day"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    listing_id = Column(Integer, ForeignKey("listings.id", ondelete="CASCADE"), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+    blocked = Column(Boolean, default=False)
+    price = Column(Float, nullable=True)
+
+    listing = relationship("Listing", back_populates="calendar_days")
 
 
 class ListingPhoto(Base):
