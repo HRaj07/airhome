@@ -14,3 +14,9 @@ build/
 *.log
 tsconfig.tsbuildinfo
 frontend/.env.local
+
+# Local helper scripts: kept on the developer's machine, not in the repo
+/setup.sh
+/start-backend.sh
+/start-frontend.sh
+/reseed.sh

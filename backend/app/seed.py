@@ -9,7 +9,7 @@ per row, which at this size takes minutes instead of seconds.
 What the rows *contain* lives in seed_data.py, which has no database imports and
 is unit-tested directly.
 
-Run with:  python -m app.seed        (or ./reseed.sh from the repo root)
+Run with:  python -m app.seed        (from the backend folder)
 """
 import datetime
 import random

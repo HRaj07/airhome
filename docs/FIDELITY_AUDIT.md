@@ -35,7 +35,7 @@ definition, `python3 -m py_compile` over the backend, and the four unit suites
 (`test_pricing.py`, `date.test.ts`, `geo.test.ts`, `i18n.test.ts`) — all passing.
 
 **Re-seed required:** the seed data changed (Indian cities + neighbourhoods), so run
-`./reseed.sh` before starting the backend.
+`python -m app.seed` from the `backend/` folder before starting the backend.
 
 ## D. Second pass — results page (from the 12:06 comparison screenshots)
 | # | Issue | Fix |
