@@ -15,9 +15,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
+    // Always start on light unless the visitor has explicitly chosen dark
+    // before (via the toggle). We no longer follow the OS/browser's
+    // prefers-color-scheme, so a device set to dark mode still sees the
+    // site in light mode by default.
     const stored = window.localStorage.getItem("airbnb_theme") as Theme | null;
-    const preferred = stored || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    setTheme(preferred);
+    setTheme(stored === "dark" ? "dark" : "light");
   }, []);
 
   useEffect(() => {
