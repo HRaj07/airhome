@@ -103,8 +103,10 @@ export default function ListingsMap({
       if (cancelled || !containerRef.current || mapRef.current) return;
       const map = L.map(containerRef.current, { zoomControl: false, scrollWheelZoom: true, attributionControl: true });
       // Carto's Voyager tiles: the light, label-rich style closest to the
-      // Google basemap Airbnb uses. Free for this kind of use, no API key.
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      // Google basemap Airbnb uses. Free, but since Sept 2026 the tiles carry an
+      // "API KEY REQUIRED" watermark without a key (carto.com/basemaps/apikey).
+      const cartoKey = process.env.NEXT_PUBLIC_CARTO_KEY;
+      L.tileLayer(`https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png${cartoKey ? `?key=${cartoKey}` : ""}`, {
         maxZoom: 19,
         subdomains: "abcd",
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
