@@ -138,33 +138,43 @@ function HomesContent() {
   // used to show whatever the database returned first, which framed the map
   // on Suzhou for a guest in Noida. Resolve the visitor's nearest city with
   // inventory and search there instead, the way the home page's "near you"
-  // rows already do. Falls through to the generic results if location fails.
+  // rows already do. Results are held back until the city is known: if the
+  // generic set loaded first, the map framed it, "search as I move" wrote that
+  // viewport into the URL, and the viewport then won over the city.
+  const [nearestFailed, setNearestFailed] = useState(false);
+  const resolvingNearest = hasSearch && !location && !bounds && !nearestFailed;
+
   useEffect(() => {
-    if (!hasSearch || location || bounds) return;
+    if (!resolvingNearest) return;
     let cancelled = false;
     getApproximateLocation()
       .then((pos) => (pos ? destinationsApi.nearest(pos.latitude, pos.longitude) : null))
       .then((near) => {
-        if (cancelled || !near?.city) return;
+        if (cancelled) return;
+        if (!near?.city) {
+          setNearestFailed(true);
+          return;
+        }
         const next = new URLSearchParams(searchParams.toString());
         next.set("location", near.city);
         next.delete("search");
         router.replace(`${pathname}?${next.toString()}`, { scroll: false });
       })
       .catch(() => {
-        // No location — the generic results stand.
+        // No location — fall back to the generic results.
+        if (!cancelled) setNearestFailed(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [hasSearch, location, bounds, searchParams, router, pathname]);
+  }, [resolvingNearest, searchParams, router, pathname]);
 
   useEffect(() => {
-    if (!hasSearch) return;
+    if (!hasSearch || resolvingNearest) return;
     fetchResults(1, true);
     // Pins for everything in view, not just this page.
     listingsApi.mapPins(baseParams).then(setPins).catch(() => setPins([]));
-  }, [hasSearch, fetchResults, baseParams]);
+  }, [hasSearch, resolvingNearest, fetchResults, baseParams]);
 
   // Infinite scroll for the results grid.
   useEffect(() => {
@@ -220,7 +230,7 @@ function HomesContent() {
 
   // Airbnb writes "Over 1,000 homes" when the count is large and exact otherwise.
   const heading =
-    loading && results.length === 0
+    (loading || resolvingNearest) && results.length === 0
       ? `${t("Searching")}...`
       : total > 1000
       ? `${t("Over")} 1,000 ${t("homes")}`
@@ -255,7 +265,7 @@ function HomesContent() {
               </div>
             </div>
 
-            {!loading && results.length === 0 ? (
+            {!loading && !resolvingNearest && results.length === 0 ? (
               <div>
                 <EmptyState
                   title={t("No exact matches")}
