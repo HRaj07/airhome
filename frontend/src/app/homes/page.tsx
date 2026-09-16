@@ -14,6 +14,7 @@ import RowsSkeleton from "@/components/RowsSkeleton";
 import { amenitiesApi, destinationsApi, listingsApi, type MapBounds, type SearchParams } from "@/lib/api";
 import { fromISODate, nightsBetween, formatShort } from "@/lib/date";
 import { useNearbyRows, type RowCoords } from "@/lib/use-nearby-rows";
+import { getApproximateLocation } from "@/lib/geo";
 import type { Amenity, Destination, FeaturedRow, ListingCard as ListingCardType, MapPin } from "@/lib/types";
 import { useLocale } from "@/lib/locale-context";
 
@@ -132,6 +133,31 @@ function HomesContent() {
     },
     [baseParams]
   );
+
+  // An empty search (the header's "search=1": no place, no dates, no map area)
+  // used to show whatever the database returned first, which framed the map
+  // on Suzhou for a guest in Noida. Resolve the visitor's nearest city with
+  // inventory and search there instead, the way the home page's "near you"
+  // rows already do. Falls through to the generic results if location fails.
+  useEffect(() => {
+    if (!hasSearch || location || bounds) return;
+    let cancelled = false;
+    getApproximateLocation()
+      .then((pos) => (pos ? destinationsApi.nearest(pos.latitude, pos.longitude) : null))
+      .then((near) => {
+        if (cancelled || !near?.city) return;
+        const next = new URLSearchParams(searchParams.toString());
+        next.set("location", near.city);
+        next.delete("search");
+        router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+      })
+      .catch(() => {
+        // No location — the generic results stand.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasSearch, location, bounds, searchParams, router, pathname]);
 
   useEffect(() => {
     if (!hasSearch) return;
